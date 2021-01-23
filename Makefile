@@ -1,3 +1,3 @@
 
-game: main.cpp
-	g++ main.cpp -o game -Iinclude -Llib -ldl -lpthread -l:libSDL2.a
+game: *.cpp *.h
+	g++ *.cpp -o game -g -Iinclude -Llib -ldl -lpthread -l:libSDL2.a

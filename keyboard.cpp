@@ -1,11 +1,15 @@
 #include "keyboard.h"
+#include "SDL2/SDL.h"
 
-#include "SDL_keyboard.h"
-#include "SDL_scancode.h"
-
-KeyState key_states[SDL_NUM_SCANCODES];
-
-void handle_keyboard_event(SDL_KeyboardEvent event)
+bool key_is_held(SDL_Scancode scancode)
 {
-    
+    int numkeys;
+    const Uint8* kb_state = SDL_GetKeyboardState(&numkeys);
+
+    if (scancode >= numkeys)
+    {
+        return false;
+    }
+
+    return kb_state[scancode] == 1;
 }

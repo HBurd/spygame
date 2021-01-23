@@ -1,9 +1,9 @@
 #include "SDL2/SDL.h"
 #include "keyboard.h"
+#include "util.h"
+#include "game.h"
 
 #include <cstdio>
-
-typedef unsigned int uint;
 
 #define INITIAL_SCREEN_WIDTH 800
 #define INITIAL_SCREEN_HEIGHT 600
@@ -28,6 +28,8 @@ int main()
             -1,
             SDL_RENDERER_PRESENTVSYNC);
 
+    init_game(renderer);
+
     bool running = true;
 
     while (running)
@@ -41,13 +43,18 @@ int main()
                 {
                    running = false;
                 }
-                case SDL_KEYUP:
-                case SDL_KEYDOWN:
-                {
-                    handke_kb_event(event.key);
-                }
-            }   
+            }
         }
+
+        if (key_is_held(SDL_SCANCODE_ESCAPE))
+        {
+            running = false;
+        }
+
+        // TODO: frame timing
+        update_game(1.0f / 60.0f);
+
+        render_game();
     }
 
     SDL_Quit();
