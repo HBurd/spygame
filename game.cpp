@@ -5,6 +5,7 @@
 #include "keyboard.h"
 #include "shapes.h"
 
+#include "imgui.h"
 #include <cmath>
 
 using namespace math;
