@@ -2,14 +2,13 @@
 #include "keyboard.h"
 #include "util.h"
 #include "game.h"
+#include "rendering.h"
 
+#include "GL/glew.h"
 #include <cstdio>
 
 #define INITIAL_SCREEN_WIDTH 800
 #define INITIAL_SCREEN_HEIGHT 600
-
-uint screen_width = INITIAL_SCREEN_WIDTH;
-uint screen_height = INITIAL_SCREEN_HEIGHT;
 
 int main()
 {
@@ -19,16 +18,36 @@ int main()
             "...",
             SDL_WINDOWPOS_UNDEFINED,
             SDL_WINDOWPOS_UNDEFINED,
-            screen_width,
-            screen_height,
-            0);
+            INITIAL_SCREEN_WIDTH,
+            INITIAL_SCREEN_HEIGHT,
+            SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
 
-    SDL_Renderer* renderer = SDL_CreateRenderer(
-            window,
-            -1,
-            SDL_RENDERER_PRESENTVSYNC);
+    if (!window)
+    {
+        fprintf(stderr, "SDL_CreateWindow returned null.\nMore info: %s", SDL_GetError());
+        return 1;
+    }
 
-    init_game(renderer);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+    SDL_GLContext gl_ctxt = SDL_GL_CreateContext(window);
+    if (!gl_ctxt)
+    {
+        fprintf(stderr, "SDL_GL_CreateContext returned null.\nMore info: %s", SDL_GetError());
+        return 1;
+    }
+
+    GLenum glew_status = glewInit();
+    if (glew_status != GLEW_OK)
+    {
+        fprintf(stderr, "glewInit did not return GLEW_OK.\nMore info: %s", glewGetErrorString(glew_status));
+        return 1;
+    }
+
+
+    init_game();
+
+    Renderer renderer(INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT);
 
     bool running = true;
 
@@ -54,7 +73,8 @@ int main()
         // TODO: frame timing
         update_game(1.0f / 60.0f);
 
-        render_game();
+        render_game(&renderer);
+        renderer.present(window);
     }
 
     SDL_Quit();

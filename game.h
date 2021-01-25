@@ -1,7 +1,7 @@
 #pragma once
 
-struct SDL_Renderer;
+struct Renderer;
 
-void init_game(SDL_Renderer* renderer);
+void init_game();
 void update_game(float dt);
-void render_game();
+void render_game(Renderer* renderer);

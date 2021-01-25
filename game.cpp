@@ -9,18 +9,14 @@
 
 using namespace math;
 
-Renderer renderer;
-
 Rectangle player;
 
 Vec2 player_velocity;
 
 MAKE_ARRAY(all_walls, Rectangle, 1024);
 
-void init_game(SDL_Renderer* sdl_renderer)
+void init_game()
 {
-    renderer.init(sdl_renderer);
-
     all_walls.push(Rectangle({2.0f, 0.0f}, {0.5f, 5.0f}, 0.1f));
     all_walls.push(Rectangle({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
 }
@@ -204,16 +200,14 @@ void update_game(float dt)
     }
 }
 
-void render_game()
+void render_game(Renderer* renderer)
 {
-    renderer.clear();
+    renderer->clear();
 
     for (auto wall : all_walls)
     {
-        renderer.debug_draw_rectangle(wall);
+        renderer->debug_draw_rectangle(wall);
     }
 
-    renderer.debug_draw_rectangle(player);
-
-    renderer.present();
+    renderer->debug_draw_rectangle(player);
 }

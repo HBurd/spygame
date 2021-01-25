@@ -4,7 +4,9 @@
 #include "shapes.h"
 #include "util.h"
 
-struct SDL_Renderer;
+#include "GL/glew.h"
+
+struct SDL_Window;
 
 struct Renderer
 {
@@ -15,15 +17,17 @@ struct Renderer
 
     math::Vec2 camera;
 
-    SDL_Renderer* renderer = nullptr;
 
-    void init(SDL_Renderer* renderer_);
+    GLuint rect_vbo;
+    GLuint rect_vao;
+    GLuint debug_shader;
+
+    Renderer(int width_, int height_);
 
     void clear() const;
-    void present();
+    void present(SDL_Window* window);
 
-    void debug_draw_polygon(Array<math::Vec2> points) const;
     void debug_draw_rectangle(Rectangle rect) const;
 
-    void transform_to_screen_coords(const math::Vec2& point, int* x, int* y) const;
+    void transform_to_screen_coords(math::Vec2 point, math::Vec2* screen_point) const;
 };
