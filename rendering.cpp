@@ -118,40 +118,56 @@ void Renderer::present(SDL_Window* window)
     }
 }
 
-void Renderer::debug_draw_rectangle(Rectangle rect) const
+void Renderer::debug_draw_rectangle(Rectangle rect, float r, float g, float b) const
 {
-    Vec2 dimensions(width - 1, height - 1);
-    dimensions /= unit_pixels;  // put screen dimensions in the right units
+    Vec2 dimensions(width, height);
+    dimensions /= pixels_per_metre;  // Convert dimensions from pixels to metres
 
     float cosine = cosf(rect.rotation);
     float sine = sinf(rect.rotation);
     Mat2 rotation(cosine, -sine,
                   sine,    cosine);
 
+    Vec2 position = world_to_screen(rect.pos);
+
     glBindVertexArray(rect_vao);
     glUseProgram(debug_shader);
 
     GLint dimensions_loc = glGetUniformLocation(debug_shader, "dimensions");
+    GLint color_loc    = glGetUniformLocation(debug_shader, "color");
     GLint position_loc = glGetUniformLocation(debug_shader, "position");
     GLint rotation_loc = glGetUniformLocation(debug_shader, "rotation");
     GLint scale_loc    = glGetUniformLocation(debug_shader, "scale");
 
     glUniform2f(dimensions_loc, dimensions.x, dimensions.y);
-    glUniform2f(position_loc, rect.pos.x, rect.pos.y);
+    glUniform3f(color_loc, r, g, b);
+    glUniform2f(position_loc, position.x, position.y);
     glUniformMatrix2fv(rotation_loc, 1, GL_TRUE, rotation.data);
     glUniform2f(scale_loc, rect.scale.x, rect.scale.y);
 
     glDrawArrays(GL_LINE_LOOP, 0, 4);
 }
 
-void Renderer::transform_to_screen_coords(Vec2 point, Vec2* screen_point) const
+Vec2 Renderer::pixels_to_screen(int x, int y) const
 {
-    Vec2 result = point;
+    // The +0.5f shifts the coordinate to the centre of the pixel
+    Vec2 screen_coord = Vec2(x, y) - 0.5f * Vec2(width, height) + Vec2(0.5f, 0.5f);
+    screen_coord /= pixels_per_metre;
+    screen_coord.y = -screen_coord.y;
+    return screen_coord;
+}
 
-    // Scale vector to be in pixels
-    result *= unit_pixels;
-    result.x /= 2.0f * (width - 1);
-    result.y /= 2.0f * (height - 1);
+Vec2 Renderer::pixels_to_world(int x, int y) const
+{
+    return screen_to_world(pixels_to_screen(x, y));
+}
 
-    *screen_point = result;
+Vec2 Renderer::screen_to_world(Vec2 screen) const
+{
+    return screen + camera;
+}
+
+Vec2 Renderer::world_to_screen(Vec2 world) const
+{
+    return world - camera;
 }

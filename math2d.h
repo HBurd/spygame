@@ -13,6 +13,9 @@ struct Vec2
     Vec2() = default;
     Vec2(float x, float y);
 
+    float* array();
+    const float* array() const;
+
     float square_magnitude() const;
     float magnitude() const;
     Vec2 normalize() const;
@@ -22,6 +25,10 @@ struct Vec2
     Vec2& operator*=(float rhs);
     Vec2& operator/=(float rhs);
 };
+
+// This ensures that the memory layout of a Vec2 is the same as an array of its components.
+// This is a requirement of various parts of the code, e.g. imgui.
+static_assert(sizeof(Vec2) == 2 * sizeof(float), "The Vec2 type cannot be padded.");
 
 struct Mat2
 {

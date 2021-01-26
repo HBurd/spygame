@@ -2,7 +2,7 @@
 #include "util.h"
 #include "math2d.h"
 #include "rendering.h"
-#include "keyboard.h"
+#include "input.h"
 #include "shapes.h"
 
 #include "imgui.h"
@@ -38,6 +38,20 @@ Vec2 generic_support(Array<Vec2> points, Vec2 d)
     }
 
     return result;
+}
+
+bool rectangle_contains_point(Rectangle rect, Vec2 point)
+{
+    float cosine = cosf(rect.rotation);
+    float sine   = sinf(rect.rotation);
+
+    Vec2 basis1(cosine, sine);
+    Vec2 basis2(-sine, cosine);
+
+    float projection1 = dot(basis1, point - rect.pos);
+    float projection2 = dot(basis2, point - rect.pos);
+
+    return fabs(projection1) <= 0.5f * rect.scale.x && fabs(projection2) <= 0.5f * rect.scale.y;
 }
 
 // Penetration_vector is optional, points out of r2
@@ -152,23 +166,114 @@ bool intersect(Rectangle r1, Rectangle r2, Vec2* penetration_vector)
     return true;
 }
 
-void update_game(float dt)
+bool editor_enabled = false;
+Rectangle* selected_object = nullptr;
+Vec2 selection_offset;
+
+bool show_imgui_demo = false;
+
+void update_game(float dt, Renderer* renderer)
 {
+    if (get_key_state(SDL_SCANCODE_GRAVE).down)
+    {
+        editor_enabled = !editor_enabled;
+    }
+
+    if (editor_enabled)
+    {
+        if (ImGui::BeginMainMenuBar())
+        {
+            if (ImGui::BeginMenu("Create"))
+            {
+                if (ImGui::MenuItem("Wall"))
+                {
+                    Rectangle new_wall;
+                    selected_object = all_walls.push(new_wall);
+                }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("View"))
+            {
+                ImGui::MenuItem("ImGui demo window", nullptr, &show_imgui_demo);
+                ImGui::EndMenu();
+            }
+            ImGui::EndMainMenuBar();
+        }
+
+        // Handle object selection with mouse
+        {
+            MouseState mouse = get_mouse_state();
+            Vec2 mouse_pos = renderer->pixels_to_world(mouse.x, mouse.y);
+            if (mouse.left.down)
+            {
+                selected_object = nullptr;
+                for (auto& object : all_walls)
+                {
+                    if (rectangle_contains_point(object, mouse_pos))
+                    {
+                        selected_object = &object;
+                    }
+                }
+
+                if (selected_object)
+                {
+                    selection_offset = selected_object->pos - mouse_pos;
+                }
+            }
+
+            if (mouse.left.held && selected_object)
+            {
+                selected_object->pos = mouse_pos + selection_offset;
+            }
+        }
+
+        if (selected_object)
+        {
+            if (ImGui::Begin("Selected Object"))
+            {
+                ImGui::InputFloat2("Size", selected_object->scale.array());
+            }
+            ImGui::End();
+        }
+
+        if (show_imgui_demo)
+        {
+            ImGui::ShowDemoWindow(&show_imgui_demo);
+        }
+    }
+
+    if (get_key_state(SDL_SCANCODE_LEFT).held)
+    {
+        renderer->camera += dt * Vec2(-1.0f, 0.0f);
+    }
+    if (get_key_state(SDL_SCANCODE_RIGHT).held)
+    {
+        renderer->camera += dt * Vec2(1.0f, 0.0f);
+    }
+    if (get_key_state(SDL_SCANCODE_UP).held)
+    {
+        renderer->camera += dt * Vec2(0.0f, 1.0f);
+    }
+    if (get_key_state(SDL_SCANCODE_DOWN).held)
+    {
+        renderer->camera += dt * Vec2(0.0f, -1.0f);
+    }
+
     player_velocity = Vec2();
 
-    if (key_is_held(SDL_SCANCODE_LEFT))
+    if (get_key_state(SDL_SCANCODE_A).held)
     {
         player_velocity += Vec2(-1.0f, 0.0f);
     }
-    if (key_is_held(SDL_SCANCODE_RIGHT))
+    if (get_key_state(SDL_SCANCODE_D).held)
     {
         player_velocity += Vec2(1.0f, 0.0f);
     }
-    if (key_is_held(SDL_SCANCODE_UP))
+    if (get_key_state(SDL_SCANCODE_W).held)
     {
         player_velocity += Vec2(0.0f, 1.0f);
     }
-    if (key_is_held(SDL_SCANCODE_DOWN))
+    if (get_key_state(SDL_SCANCODE_S).held)
     {
         player_velocity += Vec2(0.0f, -1.0f);
     }
@@ -205,10 +310,17 @@ void render_game(Renderer* renderer)
 {
     renderer->clear();
 
-    for (auto wall : all_walls)
+    for (auto& wall : all_walls)
     {
-        renderer->debug_draw_rectangle(wall);
+        if (&wall == selected_object)
+        {
+            renderer->debug_draw_rectangle(wall, 1.0f, 1.0f, 1.0f);
+        }
+        else
+        {
+            renderer->debug_draw_rectangle(wall, 0.0f, 1.0f, 0.0f);
+        }
     }
 
-    renderer->debug_draw_rectangle(player);
+    renderer->debug_draw_rectangle(player, 0.0f, 0.0f, 1.0f);
 }

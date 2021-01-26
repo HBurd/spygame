@@ -40,11 +40,12 @@ struct Array
         :size(size_), max_size(max_size_), data(array)
     {}
 
-    void push(T t)
+    T* push(T t)
     {
         assert(size < max_size);
         data[size] = t;
         ++size;
+        return back();
     }
 
     T pop()
@@ -59,6 +60,18 @@ struct Array
     void clear()
     {
         size = 0;
+    }
+
+    T* back()
+    {
+        assert(size);
+        return &data[size - 1];
+    }
+
+    const T* back() const
+    {
+        assert(size);
+        return &data[size - 1];
     }
 
     T& operator[](size_t idx)

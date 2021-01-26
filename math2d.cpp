@@ -4,7 +4,9 @@
 namespace math
 {
 
-// Vector operations
+///////////////////////
+// Vector operations //
+///////////////////////
 
 Vec2::Vec2(float x_, float y_)
     : x(x_), y(y_)
@@ -13,6 +15,18 @@ Vec2::Vec2(float x_, float y_)
 float Vec2::square_magnitude() const
 {
     return x * x + y * y;
+}
+
+// A static_assert in the header file ensures that the components of a Vec2
+// can be accessed as an array
+float* Vec2::array()
+{
+    return &x;
+}
+
+const float* Vec2::array() const
+{
+    return &x;
 }
 
 float Vec2::magnitude() const
@@ -80,8 +94,9 @@ Vec2 operator-(const Vec2& operand)
     return Vec2(-operand.x, -operand.y);
 }
 
-
-// Matrix operations
+///////////////////////
+// Matrix operations //
+///////////////////////
 
 Mat2::Mat2(Vec2 left_column, Vec2 right_column)
     : data{left_column.x, right_column.x, left_column.y, right_column.y}
