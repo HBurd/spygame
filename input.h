@@ -22,6 +22,8 @@ struct MouseState
     s32 xrel = 0;
     s32 yrel = 0;
 
+    s32 wheel = 0;
+
     ButtonState left;
     ButtonState middle;
     ButtonState right;

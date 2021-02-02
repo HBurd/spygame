@@ -223,7 +223,10 @@ void update_game(float dt, Renderer* renderer)
 
             if (mouse.left.held && selected_object)
             {
+                float rotation_change = 0.05f * mouse.wheel;
+                selection_offset = math::Mat2::Rotation(rotation_change) * selection_offset;
                 selected_object->pos = mouse_pos + selection_offset;
+                selected_object->rotation += rotation_change;
             }
         }
 
@@ -231,7 +234,9 @@ void update_game(float dt, Renderer* renderer)
         {
             if (ImGui::Begin("Selected Object"))
             {
+                ImGui::InputFloat2("Position", selected_object->pos.array());
                 ImGui::InputFloat2("Size", selected_object->scale.array());
+                ImGui::SliderFloat("Rotation", &selected_object->rotation, 0.0f, 2.0f * M_PI);
             }
             ImGui::End();
         }

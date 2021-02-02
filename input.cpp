@@ -2,6 +2,8 @@
 #include "util.h"
 #include "SDL2/SDL.h"
 
+#include "imgui.h" // Needed to check when IMGUI is capturing input
+
 ButtonState key_states[SDL_NUM_SCANCODES];
 MouseState mouse_state;
 
@@ -29,6 +31,8 @@ void clear_input_events()
     mouse_state.left.down = false;
     mouse_state.middle.down = false;
     mouse_state.right.down = false;
+
+    mouse_state.wheel = 0;
 }
 
 void handle_input_event(const SDL_Event* event)
@@ -80,15 +84,32 @@ void handle_input_event(const SDL_Event* event)
             mouse_state.right.handle_up();
         }
     }
+    else if (event->type == SDL_MOUSEWHEEL)
+    {
+        mouse_state.wheel = event->wheel.y;
+    }
 }
 
 ButtonState get_key_state(SDL_Scancode scancode)
 {
     assert(scancode < ARRAY_LENGTH(key_states));
+
+    if (ImGui::GetIO().WantCaptureKeyboard)
+    {
+        // ImGui has claimed keyboard input
+        return ButtonState();
+    }
+
     return key_states[scancode];
 }
 
 MouseState get_mouse_state()
 {
+    if (ImGui::GetIO().WantCaptureMouse)
+    {
+        // ImGui has claimed mouse input
+        return MouseState();
+    }
+
     return mouse_state;
 }

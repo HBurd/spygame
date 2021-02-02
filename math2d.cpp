@@ -106,6 +106,13 @@ Mat2::Mat2(float m00, float m01, float m10, float m11)
     : data{m00, m01, m10, m11}
 {}
 
+Mat2 Mat2::Rotation(float angle)
+{
+    float cosine = cosf(angle);
+    float sine = sinf(angle);
+    return Mat2(cosine, -sine, sine, cosine);
+}
+
 Mat2& Mat2::operator*=(float rhs)
 {
     return *this = *this * rhs;
