@@ -2,14 +2,15 @@
 
 IMGUI_PATH = lib/imgui-1.80
 GLEW_PATH = lib/glew-2.2.0
+SRC_PATH = src
 
-CPPSRC = $(wildcard *.cpp) $(wildcard $(IMGUI_PATH)/*.cpp) $(IMGUI_PATH)/backends/imgui_impl_sdl.cpp $(IMGUI_PATH)/backends/imgui_impl_opengl3.cpp
+CPPSRC = $(wildcard $(SRC_PATH)/*.cpp) $(wildcard $(IMGUI_PATH)/*.cpp) $(IMGUI_PATH)/backends/imgui_impl_sdl.cpp $(IMGUI_PATH)/backends/imgui_impl_opengl3.cpp
 
 CSRC = $(GLEW_PATH)/src/glew.c
 
 OBJECTS = $(CPPSRC:.cpp=.o) $(CSRC:.c=.o)
 
-CXXFLAGS = -MMD -g -Iinclude -I$(IMGUI_PATH) -Iinclude/SDL2
+CXXFLAGS = -MMD -g -Iinclude -I$(IMGUI_PATH) -Iinclude/SDL2 -I$(SRC_PATH)
 CFLAGS = $(CXXFLAGS)
 CPPFLAGS = -DGLEW_STATIC -DGLEW_NO_GLU -DIMGUI_IMPL_OPENGL_LOADER_GLEW
 

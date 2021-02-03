@@ -103,8 +103,8 @@ Renderer::Renderer(SDL_Window* window)
     glVertexAttribPointer(0, 2, GL_FLOAT, false, 0, 0);
 
     debug_shader = link_program(
-        compile_shader("debug_vs.glsl", GL_VERTEX_SHADER),
-        compile_shader("debug_fs.glsl", GL_FRAGMENT_SHADER));
+        compile_shader("shaders/debug_vs.glsl", GL_VERTEX_SHADER),
+        compile_shader("shaders/debug_fs.glsl", GL_FRAGMENT_SHADER));
 }
 
 void Renderer::update_screen_size(SDL_Window* window)
