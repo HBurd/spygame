@@ -46,9 +46,9 @@ struct Mat2
     Mat2& operator-=(const Mat2& rhs);
 };
 
+// Vector operations
 float dot(const Vec2& lhs, const Vec2& rhs);
 
-// Vector operations
 Vec2 operator+(const Vec2& lhs, const Vec2& rhs);
 Vec2 operator-(const Vec2& lhs, const Vec2& rhs);
 Vec2 operator*(float lhs, const Vec2& rhs);

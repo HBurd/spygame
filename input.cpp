@@ -33,6 +33,8 @@ void clear_input_events()
     mouse_state.right.down = false;
 
     mouse_state.wheel = 0;
+    mouse_state.xrel = 0;
+    mouse_state.yrel = 0;
 }
 
 void handle_input_event(const SDL_Event* event)

@@ -3,5 +3,5 @@
 struct Renderer;
 
 void init_game();
-void update_game(float dt, Renderer* renderer);
+void update_game(float dt);
 void render_game(Renderer* renderer);

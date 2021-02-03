@@ -10,6 +10,8 @@
 
 using namespace math;
 
+CameraView camera;
+
 Rectangle player;
 
 Vec2 player_velocity;
@@ -172,7 +174,7 @@ Vec2 selection_offset;
 
 bool show_imgui_demo = false;
 
-void update_game(float dt, Renderer* renderer)
+void update_game(float dt)
 {
     if (get_key_state(SDL_SCANCODE_GRAVE).down)
     {
@@ -203,7 +205,7 @@ void update_game(float dt, Renderer* renderer)
         // Handle object selection with mouse
         {
             MouseState mouse = get_mouse_state();
-            Vec2 mouse_pos = renderer->pixels_to_world(mouse.x, mouse.y);
+            Vec2 mouse_pos;// = renderer->pixels_to_world(mouse.x, mouse.y);
             if (mouse.left.down)
             {
                 selected_object = nullptr;
@@ -247,21 +249,48 @@ void update_game(float dt, Renderer* renderer)
         }
     }
 
+    {
+        MouseState mouse = get_mouse_state();
+        if (mouse.right.held)
+        {
+            camera.yaw += 0.01f * mouse.xrel;
+            camera.pitch += 0.01f * mouse.yrel;
+
+            if (camera.yaw > M_PI)
+            {
+                camera.yaw -= 2.0f * M_PI;
+            }
+            else if (camera.yaw < -M_PI)
+            {
+                camera.yaw += 2.0f * M_PI;
+            }
+
+            if (camera.pitch > 0.0f)
+            {
+                camera.pitch = 0.0f;
+            }
+            else if (camera.pitch < -0.5f * M_PI)
+            {
+                camera.pitch = -0.5f * M_PI;
+            }
+        }
+    }
+
     if (get_key_state(SDL_SCANCODE_LEFT).held)
     {
-        renderer->camera += dt * Vec2(-1.0f, 0.0f);
+        camera.target += dt * Vec3(-1.0f, 0.0f, 0.0f);
     }
     if (get_key_state(SDL_SCANCODE_RIGHT).held)
     {
-        renderer->camera += dt * Vec2(1.0f, 0.0f);
+        camera.target += dt * Vec3(1.0f, 0.0f, 0.0f);
     }
     if (get_key_state(SDL_SCANCODE_UP).held)
     {
-        renderer->camera += dt * Vec2(0.0f, 1.0f);
+        camera.target += dt * Vec3(0.0f, 1.0f, 0.0f);
     }
     if (get_key_state(SDL_SCANCODE_DOWN).held)
     {
-        renderer->camera += dt * Vec2(0.0f, -1.0f);
+        camera.target += dt * Vec3(0.0f, -1.0f, 0.0f);
     }
 
     player_velocity = Vec2();
@@ -313,7 +342,7 @@ void update_game(float dt, Renderer* renderer)
 
 void render_game(Renderer* renderer)
 {
-    renderer->clear();
+    renderer->prepare(camera);
 
     for (auto& wall : all_walls)
     {

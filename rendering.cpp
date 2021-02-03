@@ -1,13 +1,20 @@
 #include "rendering.h"
 #include "util.h"
 
+#include "math3d.h"
+#include "math4d.h"
+
 #include "GL/glew.h"
 #include "SDL2/SDL.h"
 
 #include <cstdio> // for shader loading
+#include <cstring> // for memcpy
 
 using math::Vec2;
+using math::Vec3;
 using math::Mat2;
+using math::Mat3;
+using math::Mat4;
 
 static GLint compile_shader(const char* filename, GLuint shader_type)
 {
@@ -69,9 +76,13 @@ static GLuint link_program(GLint vshader, GLint fshader)
     return program;
 }
 
-Renderer::Renderer(int width_, int height_)
-    : width(width_), height(height_)
+Renderer::Renderer(SDL_Window* window)
 {
+    update_screen_size(window);
+
+    glEnable(GL_MULTISAMPLE);
+    glEnable(GL_DEPTH_TEST);
+
     glGenBuffers(1, &rect_vbo);
 
     glBindBuffer(GL_ARRAY_BUFFER, rect_vbo);
@@ -96,18 +107,9 @@ Renderer::Renderer(int width_, int height_)
         compile_shader("debug_fs.glsl", GL_FRAGMENT_SHADER));
 }
 
-void Renderer::clear() const
+void Renderer::update_screen_size(SDL_Window* window)
 {
-    // TODO: Should this be set somewhere else?
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-
-void Renderer::present(SDL_Window* window)
-{
-    SDL_GL_SwapWindow(window);
-
-    // Update viewport dimensions if necessary
+    // Only update if necessary
     int new_width, new_height;
     SDL_GetWindowSize(window, &new_width, &new_height);
     if (new_width != width || new_height != height)
@@ -118,36 +120,57 @@ void Renderer::present(SDL_Window* window)
     }
 }
 
+void Renderer::clear() const
+{
+    // TODO: Should this be set somewhere else?
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void Renderer::prepare(CameraView camera)
+{
+    clear();
+
+    camera_matrix =
+        Mat4::Perspective(camera.near, camera.far, camera.fov, float(width)/float(height))
+        * Mat4::Translate(Vec3(0.0f, 0.0f, -camera.distance))
+        * Mat4(Mat3::RotateX(camera.pitch)
+               * Mat3::RotateZ(camera.yaw))
+        * Mat4::Translate(-camera.target);
+}
+
+void Renderer::present(SDL_Window* window)
+{
+    SDL_GL_SwapWindow(window);
+    update_screen_size(window);
+}
+
 void Renderer::debug_draw_rectangle(Rectangle rect, float r, float g, float b) const
 {
-    Vec2 dimensions(width, height);
-    dimensions /= pixels_per_metre;  // Convert dimensions from pixels to metres
-
     float cosine = cosf(rect.rotation);
     float sine = sinf(rect.rotation);
     Mat2 rotation(cosine, -sine,
                   sine,    cosine);
 
-    Vec2 position = world_to_screen(rect.pos);
-
     glBindVertexArray(rect_vao);
     glUseProgram(debug_shader);
 
-    GLint dimensions_loc = glGetUniformLocation(debug_shader, "dimensions");
+    GLint camera_loc   = glGetUniformLocation(debug_shader, "camera");
     GLint color_loc    = glGetUniformLocation(debug_shader, "color");
     GLint position_loc = glGetUniformLocation(debug_shader, "position");
     GLint rotation_loc = glGetUniformLocation(debug_shader, "rotation");
     GLint scale_loc    = glGetUniformLocation(debug_shader, "scale");
 
-    glUniform2f(dimensions_loc, dimensions.x, dimensions.y);
+    glUniformMatrix4fv(camera_loc, 1, GL_TRUE, camera_matrix.data);
     glUniform3f(color_loc, r, g, b);
-    glUniform2f(position_loc, position.x, position.y);
+    glUniform2f(position_loc, rect.pos.x, rect.pos.y);
     glUniformMatrix2fv(rotation_loc, 1, GL_TRUE, rotation.data);
     glUniform2f(scale_loc, rect.scale.x, rect.scale.y);
 
     glDrawArrays(GL_LINE_LOOP, 0, 4);
 }
 
+/*
 Vec2 Renderer::pixels_to_screen(int x, int y) const
 {
     // The +0.5f shifts the coordinate to the centre of the pixel
@@ -171,3 +194,4 @@ Vec2 Renderer::world_to_screen(Vec2 world) const
 {
     return world - camera;
 }
+*/

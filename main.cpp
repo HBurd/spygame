@@ -69,8 +69,7 @@ int main()
 
     init_game();
 
-    Renderer renderer(INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT);
-    glEnable(GL_MULTISAMPLE);
+    Renderer renderer(window);
 
     bool running = true;
 
@@ -101,12 +100,13 @@ int main()
         }
 
         // TODO: frame timing
-        update_game(1.0f / 60.0f, &renderer);
+        update_game(1.0f / 60.0f);
 
         ImGui::Render();
 
         render_game(&renderer);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
         renderer.present(window);
     }
 
