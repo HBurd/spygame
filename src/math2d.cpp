@@ -113,6 +113,23 @@ Mat2 Mat2::Rotation(float angle)
     return Mat2(cosine, -sine, sine, cosine);
 }
 
+Mat2& Mat2::transpose()
+{
+    // For each row
+    for (int i = 0; i < 2; ++i)
+    {
+        // For each element of row, starting 1 past diagonal
+        for (int j = i + 1; j < 2; ++j)
+        {
+            float tmp = data[2*i + j];
+            data[2*i + j] = data[2*j + i];
+            data[2*j + i] = tmp;
+        }
+    }
+
+    return *this;
+}
+
 Mat2& Mat2::operator*=(float rhs)
 {
     return *this = *this * rhs;

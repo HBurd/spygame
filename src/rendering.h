@@ -13,14 +13,19 @@ struct SDL_Window;
 
 struct CameraView
 {
-    float fov = 1.5f;
+    float fov = 0.5f * 3.14159265f;
     float near = 0.1f;
     float far = 100.0f;
     float distance = 5.0f;
     float yaw = 0.0f;
-    float pitch = -0.5f;
+    float pitch = 0.0f;
 
     math::Vec3 target;
+
+    // Pixel coordinates are measured in pixels from the top-left of the window
+    math::Vec3 pixel_direction(int x, int y, int width, int height) const;
+    math::Vec3 compute_position() const;
+    math::Mat3 compute_rotation() const;
 };
 
 struct Renderer
@@ -44,17 +49,4 @@ struct Renderer
     void present(SDL_Window* window);
 
     void debug_draw_rectangle(Rectangle rect, float r, float g, float b) const;
-
-    /* Coordinate systems:
-       - Pixel coordinates are measured in pixels from the top-left of the window
-       - World coordinates are measured in metres from the world origin
-       - Screen coordinates are measured in metres from the screen centre
-    */
-
-    /*
-    math::Vec2 pixels_to_world(int x, int y) const;
-    math::Vec2 pixels_to_screen(int x, int y) const;
-    math::Vec2 screen_to_world(math::Vec2 screen) const;
-    math::Vec2 world_to_screen(math::Vec2 world) const;
-    */
 };

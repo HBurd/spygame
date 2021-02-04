@@ -166,6 +166,23 @@ Vec3 Mat3::row(size_t index) const
     return Vec3(data[3 * index], data[3 * index + 1], data[3 * index + 2]);
 }
 
+Mat3& Mat3::transpose()
+{
+    // For each row
+    for (int i = 0; i < 3; ++i)
+    {
+        // For each element of row, starting 1 past diagonal
+        for (int j = i + 1; j < 3; ++j)
+        {
+            float tmp = data[3*i + j];
+            data[3*i + j] = data[3*j + i];
+            data[3*j + i] = tmp;
+        }
+    }
+
+    return *this;
+}
+
 Mat3& Mat3::operator*=(float rhs)
 {
     return *this = *this * rhs;

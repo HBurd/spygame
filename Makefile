@@ -20,4 +20,4 @@ game: $(OBJECTS)
 clean:
 	rm -f $(OBJECTS) $(OBJECTS:.o=.d) game
 
--include *.d
+-include $(OBJECTS:.o=.d)

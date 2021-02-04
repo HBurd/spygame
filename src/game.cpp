@@ -56,6 +56,19 @@ bool rectangle_contains_point(Rectangle rect, Vec2 point)
     return fabs(projection1) <= 0.5f * rect.scale.x && fabs(projection2) <= 0.5f * rect.scale.y;
 }
 
+// Find where the line along dir passing through p intersects with a particular z plane
+Vec2 z_intersect(Vec3 p, Vec3 dir, float z)
+{
+    if (!dir.z)
+    {
+        // Return zero if the direction is parallel to the z plane
+        return Vec2();
+    }
+
+    float t = (z - p.z) / dir.z;
+    return Vec2(p.x, p.y) + t * Vec2(dir.x, dir.y);
+}
+
 // Penetration_vector is optional, points out of r2
 bool intersect(Rectangle r1, Rectangle r2, Vec2* penetration_vector)
 {
@@ -174,7 +187,7 @@ Vec2 selection_offset;
 
 bool show_imgui_demo = false;
 
-void update_game(float dt)
+void update_game(float dt, const Renderer* renderer)
 {
     if (get_key_state(SDL_SCANCODE_GRAVE).down)
     {
@@ -205,7 +218,9 @@ void update_game(float dt)
         // Handle object selection with mouse
         {
             MouseState mouse = get_mouse_state();
-            Vec2 mouse_pos;// = renderer->pixels_to_world(mouse.x, mouse.y);
+            Vec3 mouse_dir = camera.pixel_direction(mouse.x, mouse.y, renderer->width, renderer->height);
+            Vec2 mouse_pos = z_intersect(camera.compute_position(), mouse_dir, 0.0f);
+
             if (mouse.left.down)
             {
                 selected_object = nullptr;
@@ -253,8 +268,8 @@ void update_game(float dt)
         MouseState mouse = get_mouse_state();
         if (mouse.right.held)
         {
-            camera.yaw += 0.01f * mouse.xrel;
-            camera.pitch += 0.01f * mouse.yrel;
+            camera.yaw -= 0.01f * mouse.xrel;
+            camera.pitch -= 0.01f * mouse.yrel;
 
             if (camera.yaw > M_PI)
             {
@@ -265,13 +280,13 @@ void update_game(float dt)
                 camera.yaw += 2.0f * M_PI;
             }
 
-            if (camera.pitch > 0.0f)
+            if (camera.pitch < 0.0f)
             {
                 camera.pitch = 0.0f;
             }
-            else if (camera.pitch < -0.5f * M_PI)
+            else if (camera.pitch > 0.5f * M_PI)
             {
-                camera.pitch = -0.5f * M_PI;
+                camera.pitch = 0.5f * M_PI;
             }
         }
     }

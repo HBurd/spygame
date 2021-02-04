@@ -100,7 +100,7 @@ int main()
         }
 
         // TODO: frame timing
-        update_game(1.0f / 60.0f);
+        update_game(1.0f / 60.0f, &renderer);
 
         ImGui::Render();
 

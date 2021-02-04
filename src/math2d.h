@@ -40,6 +40,8 @@ struct Mat2
 
     static Mat2 Rotation(float angle);
 
+    Mat2& transpose();
+
     Mat2& operator*=(float rhs);
     Mat2& operator*=(const Mat2& rhs);
     Mat2& operator+=(const Mat2& rhs);

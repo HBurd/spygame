@@ -45,6 +45,8 @@ struct Mat4
     static Mat4 Perspective(float near, float far, float fov, float aspect_ratio);
     static Mat4 Translate(Vec3 translation);
 
+    Mat4& transpose();
+
     Vec4 column(size_t index) const;
     Vec4 row(size_t index) const;
 

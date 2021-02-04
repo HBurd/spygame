@@ -44,6 +44,8 @@ struct Mat3
     static Mat3 RotateY(float angle);
     static Mat3 RotateZ(float angle);
 
+    Mat3& transpose();
+
     Vec3 column(size_t index) const;
     Vec3 row(size_t index) const;
 

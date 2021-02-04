@@ -138,11 +138,11 @@ Mat4 Mat4::FromRows(const Vec4& r0, const Vec4& r1, const Vec4& r2, const Vec4& 
 
 Mat4 Mat4::Perspective(float near, float far, float fov, float aspect_ratio)
 {
-    float csc_fov = 1.0f / sinf(fov * 0.5f);
+    float cot_fov = 1.0f / tanf(fov * 0.5f);
 
     return Mat4(
-        csc_fov, 0.0f, 0.0f, 0.0f,
-        0.0f, aspect_ratio * csc_fov, 0.0f, 0.0f,
+        cot_fov, 0.0f, 0.0f, 0.0f,
+        0.0f, aspect_ratio * cot_fov, 0.0f, 0.0f,
         0.0f, 0.0f, -(near + far) / (far - near), -2 * near * far / (far - near),
         0.0f, 0.0f, -1.0f, 0.0f);
 }
@@ -167,6 +167,23 @@ Vec4 Mat4::row(size_t index) const
 {
     assert(index < 4);
     return Vec4(data[4 * index], data[4 * index + 1], data[4 * index + 2], data[4 * index + 3]);
+}
+
+Mat4& Mat4::transpose()
+{
+    // For each row
+    for (int i = 0; i < 4; ++i)
+    {
+        // For each element of row, starting 1 past diagonal
+        for (int j = i + 1; j < 4; ++j)
+        {
+            float tmp = data[4*i + j];
+            data[4*i + j] = data[4*j + i];
+            data[4*j + i] = tmp;
+        }
+    }
+
+    return *this;
 }
 
 Mat4& Mat4::operator*=(float rhs)

@@ -76,6 +76,39 @@ static GLuint link_program(GLint vshader, GLint fshader)
     return program;
 }
 
+Vec3 CameraView::pixel_direction(int x, int y, int width, int height) const
+{
+    // The +0.5f shifts the coordinate to the centre of the pixel
+    Vec3 dir = Vec3(x, y, 0.0f) - 0.5f * Vec3(width, height, 0.0f) + Vec3(0.5f, 0.5f, 0.0f);
+
+    // Flip the y axis to point up
+    dir.y = -dir.y;
+
+    // Width of the rectangle filling the screen at distance cos(fov/2) from the camera
+    float image_width = 2.0f * sinf(0.5f * fov);
+
+    // Scale to the size of this rectangle
+    dir *= image_width / width;
+
+    // Move onto this rectangle
+    dir.z = -cosf(0.5f * fov);
+
+    // Apply camera rotation
+    dir = compute_rotation() * dir;
+
+    return dir;
+}
+
+Vec3 CameraView::compute_position() const
+{
+    return target + compute_rotation() * Vec3(0.0f, 0.0f, distance);
+}
+
+Mat3 CameraView::compute_rotation() const
+{
+    return Mat3::RotateZ(yaw) * Mat3::RotateX(pitch);
+}
+
 Renderer::Renderer(SDL_Window* window)
 {
     update_screen_size(window);
@@ -134,8 +167,7 @@ void Renderer::prepare(CameraView camera)
     camera_matrix =
         Mat4::Perspective(camera.near, camera.far, camera.fov, float(width)/float(height))
         * Mat4::Translate(Vec3(0.0f, 0.0f, -camera.distance))
-        * Mat4(Mat3::RotateX(camera.pitch)
-               * Mat3::RotateZ(camera.yaw))
+        * Mat4(camera.compute_rotation().transpose())
         * Mat4::Translate(-camera.target);
 }
 
