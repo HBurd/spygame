@@ -106,6 +106,11 @@ Mat2::Mat2(float m00, float m01, float m10, float m11)
     : data{m00, m01, m10, m11}
 {}
 
+Mat2 Mat2::Diagonal(const Vec2& diag)
+{
+    return Mat2(diag.x, 0.0f, 0.0f, diag.y);
+}
+
 Mat2 Mat2::Rotation(float angle)
 {
     float cosine = cosf(angle);
@@ -113,21 +118,28 @@ Mat2 Mat2::Rotation(float angle)
     return Mat2(cosine, -sine, sine, cosine);
 }
 
-Mat2& Mat2::transpose()
+Mat2 Mat2::transpose() const
 {
+    Mat2 result;
+
+    // Set diagonal
+    for (int i = 0; i < 2; ++i)
+    {
+        result.data[3 * i] = data[3 * i];
+    }
+
     // For each row
     for (int i = 0; i < 2; ++i)
     {
         // For each element of row, starting 1 past diagonal
         for (int j = i + 1; j < 2; ++j)
         {
-            float tmp = data[2*i + j];
-            data[2*i + j] = data[2*j + i];
-            data[2*j + i] = tmp;
+            result.data[2*i + j] = data[2*j + i];
+            result.data[2*j + i] = data[2*i + j];
         }
     }
 
-    return *this;
+    return result;
 }
 
 Mat2& Mat2::operator*=(float rhs)

@@ -18,6 +18,10 @@ struct Vec4
     float& operator[](size_t index);
     const float& operator[](size_t index) const;
 
+    float square_magnitude() const;
+    float magnitude() const;
+    Vec4 normalize() const;
+
     Vec4& operator+=(const Vec4& rhs);
     Vec4& operator-=(const Vec4& rhs);
     Vec4& operator*=(float rhs);
@@ -41,11 +45,12 @@ struct Mat4
 
     static Mat4 FromColumns(const Vec4& c0, const Vec4& c1, const Vec4& c2, const Vec4& c3);
     static Mat4 FromRows(const Vec4& r0, const Vec4& r1, const Vec4& r2, const Vec4& r3);
+    static Mat4 Diagonal(const Vec4& diag);
 
     static Mat4 Perspective(float near, float far, float fov, float aspect_ratio);
     static Mat4 Translate(Vec3 translation);
 
-    Mat4& transpose();
+    Mat4 transpose() const;
 
     Vec4 column(size_t index) const;
     Vec4 row(size_t index) const;

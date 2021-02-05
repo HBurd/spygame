@@ -33,20 +33,27 @@ struct Renderer
     int width = 0;
     int height = 0;
 
+    math::Vec3 light_direction = math::Vec3(0.0f, 0.0f, -1.0f);
+
     math::Mat4 camera_matrix;
 
     GLuint rect_vbo;
     GLuint rect_vao;
     GLuint debug_shader;
 
+    GLuint cube_vbo;
+    GLuint cube_vao;
+    GLuint simple_shader;
+
     Renderer(SDL_Window* window);
 
-    // This is called internally
+    // This is called automatically by the constructor and after present()
     void update_screen_size(SDL_Window* window);
 
     void clear() const;
     void prepare(CameraView camera);
     void present(SDL_Window* window);
 
-    void debug_draw_rectangle(Rectangle rect, float r, float g, float b) const;
+    void debug_draw_rectangle(Transform2d rect, float r, float g, float b) const;
+    void draw_box(Transform3d box);
 };

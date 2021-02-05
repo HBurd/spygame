@@ -13,6 +13,21 @@ Vec3::Vec3(float x_, float y_, float z_)
     : x(x_), y(y_), z(z_)
 {}
 
+float Vec3::square_magnitude() const
+{
+    return x*x + y*y + z*z;
+}
+
+float Vec3::magnitude() const
+{
+    return sqrtf(square_magnitude());
+}
+
+Vec3 Vec3::normalize() const
+{
+    return *this / magnitude();
+}
+
 Vec3& Vec3::operator+=(const Vec3& rhs)
 {
     return *this = *this + rhs;
@@ -118,6 +133,14 @@ Mat3 Mat3::FromRows(const Vec3& r0, const Vec3& r1, const Vec3& r2)
     );
 }
 
+Mat3 Mat3::Diagonal(const Vec3& diag)
+{
+    return Mat3(
+        diag.x, 0.0f,   0.0f,
+        0.0f,   diag.y, 0.0f,
+        0.0f,   0.0f,   diag.z);
+}
+
 Mat3 Mat3::RotateX(float angle)
 {
     float cosine = cosf(angle);
@@ -166,21 +189,28 @@ Vec3 Mat3::row(size_t index) const
     return Vec3(data[3 * index], data[3 * index + 1], data[3 * index + 2]);
 }
 
-Mat3& Mat3::transpose()
+Mat3 Mat3::transpose() const
 {
+    Mat3 result;
+
+    // Set diagonal
+    for (int i = 0; i < 3; ++i)
+    {
+        result.data[4 * i] = data[4 * i];
+    }
+
     // For each row
     for (int i = 0; i < 3; ++i)
     {
         // For each element of row, starting 1 past diagonal
         for (int j = i + 1; j < 3; ++j)
         {
-            float tmp = data[3*i + j];
-            data[3*i + j] = data[3*j + i];
-            data[3*j + i] = tmp;
+            result.data[3*i + j] = data[3*j + i];
+            result.data[3*j + i] = data[3*i + j];
         }
     }
 
-    return *this;
+    return result;
 }
 
 Mat3& Mat3::operator*=(float rhs)

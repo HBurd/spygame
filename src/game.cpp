@@ -12,16 +12,16 @@ using namespace math;
 
 CameraView camera;
 
-Rectangle player;
+Transform2d player;
 
 Vec2 player_velocity;
 
-MAKE_ARRAY(all_walls, Rectangle, 1024);
+MAKE_ARRAY(all_walls, Transform2d, 1024);
 
 void init_game()
 {
-    all_walls.push(Rectangle({2.0f, 0.0f}, {0.5f, 5.0f}, 0.1f));
-    all_walls.push(Rectangle({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
+    all_walls.push(Transform2d({2.0f, 0.0f}, {0.5f, 5.0f}, 0.1f));
+    all_walls.push(Transform2d({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
 }
 
 Vec2 generic_support(Array<Vec2> points, Vec2 d)
@@ -42,7 +42,7 @@ Vec2 generic_support(Array<Vec2> points, Vec2 d)
     return result;
 }
 
-bool rectangle_contains_point(Rectangle rect, Vec2 point)
+bool rectangle_contains_point(Transform2d rect, Vec2 point)
 {
     float cosine = cosf(rect.rotation);
     float sine   = sinf(rect.rotation);
@@ -70,7 +70,7 @@ Vec2 z_intersect(Vec3 p, Vec3 dir, float z)
 }
 
 // Penetration_vector is optional, points out of r2
-bool intersect(Rectangle r1, Rectangle r2, Vec2* penetration_vector)
+bool intersect(Transform2d r1, Transform2d r2, Vec2* penetration_vector)
 {
     float cos1 = cosf(r1.rotation);
     float sin1 = sinf(r1.rotation);
@@ -182,7 +182,7 @@ bool intersect(Rectangle r1, Rectangle r2, Vec2* penetration_vector)
 }
 
 bool editor_enabled = false;
-Rectangle* selected_object = nullptr;
+Transform2d* selected_object = nullptr;
 Vec2 selection_offset;
 
 bool show_imgui_demo = false;
@@ -202,7 +202,7 @@ void update_game(float dt, const Renderer* renderer)
             {
                 if (ImGui::MenuItem("Wall"))
                 {
-                    Rectangle new_wall;
+                    Transform2d new_wall;
                     selected_object = all_walls.push(new_wall);
                 }
                 ImGui::EndMenu();
@@ -284,9 +284,9 @@ void update_game(float dt, const Renderer* renderer)
             {
                 camera.pitch = 0.0f;
             }
-            else if (camera.pitch > 0.5f * M_PI)
+            else if (camera.pitch > M_PI)
             {
-                camera.pitch = 0.5f * M_PI;
+                camera.pitch = M_PI;
             }
         }
     }
@@ -361,15 +361,29 @@ void render_game(Renderer* renderer)
 
     for (auto& wall : all_walls)
     {
+        float r, g, b;
         if (&wall == selected_object)
         {
-            renderer->debug_draw_rectangle(wall, 1.0f, 1.0f, 1.0f);
+            r = 1.0f;
+            g = 1.0f;
+            b = 1.0f;
         }
         else
         {
-            renderer->debug_draw_rectangle(wall, 0.0f, 1.0f, 0.0f);
+            r = 0.0f;
+            g = 1.0f;
+            b = 0.0f;
         }
+        renderer->debug_draw_rectangle(wall, r, g, b);
+
+        Transform3d box_transform(Vec3(wall.pos.x, wall.pos.y, 0.5f), Vec3(wall.scale.x, wall.scale.y, 1.0f), wall.rotation);
+        renderer->draw_box(box_transform);
     }
 
+    // Draw player
     renderer->debug_draw_rectangle(player, 0.0f, 0.0f, 1.0f);
+
+    // Draw ground
+    Transform3d ground_transform(Vec3(0.0f, 0.0f, -0.1f), Vec3(20.0f, 20.0f, 0.2f), 0.0f);
+    renderer->draw_box(ground_transform);
 }

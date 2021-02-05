@@ -38,9 +38,10 @@ struct Mat2
     Mat2(Vec2 left_column, Vec2 right_column);
     Mat2(float m00, float m01, float m10, float m11);
 
+    static Mat2 Diagonal(const Vec2& diag);
     static Mat2 Rotation(float angle);
 
-    Mat2& transpose();
+    Mat2 transpose() const;
 
     Mat2& operator*=(float rhs);
     Mat2& operator*=(const Mat2& rhs);

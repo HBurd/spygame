@@ -27,6 +27,21 @@ const float& Vec4::operator[](size_t index) const
     return data[index];
 }
 
+float Vec4::square_magnitude() const
+{
+    return data[0]*data[0] + data[1]*data[1] + data[2]*data[2] + data[3]*data[3];
+}
+
+float Vec4::magnitude() const
+{
+    return sqrtf(square_magnitude());
+}
+
+Vec4 Vec4::normalize() const
+{
+    return *this / magnitude();
+}
+
 Vec4& Vec4::operator+=(const Vec4& rhs)
 {
     return *this = *this + rhs;
@@ -135,6 +150,14 @@ Mat4 Mat4::FromRows(const Vec4& r0, const Vec4& r1, const Vec4& r2, const Vec4& 
         r2[0], r2[1], r2[2], r2[3],
         r3[0], r3[1], r3[2], r3[3]);
 }
+Mat4 Mat4::Diagonal(const Vec4& diag)
+{
+    return Mat4(
+        diag[0], 0.0f,    0.0f,    0.0f,
+        0.0f,    diag[1], 0.0f,    0.0f,
+        0.0f,    0.0f,    diag[2], 0.0f,
+        0.0f,    0.0f,    0.0f,    diag[3]);
+}
 
 Mat4 Mat4::Perspective(float near, float far, float fov, float aspect_ratio)
 {
@@ -169,21 +192,28 @@ Vec4 Mat4::row(size_t index) const
     return Vec4(data[4 * index], data[4 * index + 1], data[4 * index + 2], data[4 * index + 3]);
 }
 
-Mat4& Mat4::transpose()
+Mat4 Mat4::transpose() const
 {
+    Mat4 result;
+
+    // Set diagonal
+    for (int i = 0; i < 4; ++i)
+    {
+        result.data[5 * i] = data[5 * i];
+    }
+
     // For each row
     for (int i = 0; i < 4; ++i)
     {
         // For each element of row, starting 1 past diagonal
         for (int j = i + 1; j < 4; ++j)
         {
-            float tmp = data[4*i + j];
-            data[4*i + j] = data[4*j + i];
-            data[4*j + i] = tmp;
+            result.data[4*i + j] = data[4*j + i];
+            result.data[4*j + i] = data[4*i + j];
         }
     }
 
-    return *this;
+    return result;
 }
 
 Mat4& Mat4::operator*=(float rhs)

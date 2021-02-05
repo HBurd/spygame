@@ -16,6 +16,10 @@ struct Vec3
     float* array();
     const float* array() const;
 
+    float square_magnitude() const;
+    float magnitude() const;
+    Vec3 normalize() const;
+
     Vec3& operator+=(const Vec3& rhs);
     Vec3& operator-=(const Vec3& rhs);
     Vec3& operator*=(float rhs);
@@ -39,12 +43,13 @@ struct Mat3
 
     static Mat3 FromColumns(const Vec3& c0, const Vec3& c1, const Vec3& c2);
     static Mat3 FromRows(const Vec3& r0, const Vec3& r1, const Vec3& r2);
+    static Mat3 Diagonal(const Vec3& diag);
 
     static Mat3 RotateX(float angle);
     static Mat3 RotateY(float angle);
     static Mat3 RotateZ(float angle);
 
-    Mat3& transpose();
+    Mat3 transpose() const;
 
     Vec3 column(size_t index) const;
     Vec3 row(size_t index) const;

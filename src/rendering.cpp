@@ -76,6 +76,45 @@ static GLuint link_program(GLint vshader, GLint fshader)
     return program;
 }
 
+// Returns cube positions interleaved with normals
+static const Vec3* generate_cube_mesh()
+{
+    static Vec3 cube_mesh[72];
+
+    const Vec3 front_face[12] = {
+        // Lower left
+        Vec3(-0.5f,  0.5f, 0.5f),
+        Vec3( 0.0f,  0.0f, 1.0f),
+        Vec3(-0.5f, -0.5f, 0.5f),
+        Vec3( 0.0f,  0.0f, 1.0f),
+        Vec3( 0.5f, -0.5f, 0.5f),
+        Vec3( 0.0f,  0.0f, 1.0f),
+
+        // Upper right
+        Vec3( 0.5f, -0.5f, 0.5f),
+        Vec3( 0.0f,  0.0f, 1.0f),
+        Vec3( 0.5f,  0.5f, 0.5f),
+        Vec3( 0.0f,  0.0f, 1.0f),
+        Vec3(-0.5f,  0.5f, 0.5f),
+        Vec3( 0.0f,  0.0f, 1.0f),
+    };
+
+    const Mat3 x_rotate = Mat3::RotateX(0.5f * M_PI);
+    const Mat3 y_rotate = Mat3::RotateY(0.5f * M_PI);
+
+    for (int i = 0; i < ARRAY_LENGTH(front_face); ++i)
+    {
+        cube_mesh[i]                                =                        front_face[i];
+        cube_mesh[i +     ARRAY_LENGTH(front_face)] =             x_rotate * front_face[i];
+        cube_mesh[i + 2 * ARRAY_LENGTH(front_face)] =  x_rotate * x_rotate * front_face[i];
+        cube_mesh[i + 3 * ARRAY_LENGTH(front_face)] = x_rotate.transpose() * front_face[i];
+        cube_mesh[i + 4 * ARRAY_LENGTH(front_face)] =             y_rotate * front_face[i];
+        cube_mesh[i + 5 * ARRAY_LENGTH(front_face)] = y_rotate.transpose() * front_face[i];
+    }
+
+    return cube_mesh;
+}
+
 Vec3 CameraView::pixel_direction(int x, int y, int width, int height) const
 {
     // The +0.5f shifts the coordinate to the centre of the pixel
@@ -116,28 +155,54 @@ Renderer::Renderer(SDL_Window* window)
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
 
-    glGenBuffers(1, &rect_vbo);
+    // Generate (2d) square vao
+    {
+        glGenBuffers(1, &rect_vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, rect_vbo);
 
-    glBindBuffer(GL_ARRAY_BUFFER, rect_vbo);
+        Vec2 rect_vertices[4] = {
+            { 0.5f,  0.5f},
+            {-0.5f,  0.5f},
+            {-0.5f, -0.5f},
+            { 0.5f, -0.5f},
+        };
 
-    Vec2 rect_vertices[4] = {
-        { 0.5f,  0.5f},
-        {-0.5f,  0.5f},
-        {-0.5f, -0.5f},
-        { 0.5f, -0.5f},
-    };
+        glBufferData(GL_ARRAY_BUFFER, sizeof(rect_vertices), rect_vertices, GL_STATIC_DRAW);
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(rect_vertices), rect_vertices, GL_STATIC_DRAW);
+        glGenVertexArrays(1, &rect_vao);
+        glBindVertexArray(rect_vao);
 
-    glGenVertexArrays(1, &rect_vao);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (const void*)0);
 
-    glBindVertexArray(rect_vao);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, false, 0, 0);
+        debug_shader = link_program(
+            compile_shader("shaders/debug_vs.glsl", GL_VERTEX_SHADER),
+            compile_shader("shaders/debug_fs.glsl", GL_FRAGMENT_SHADER));
+    }
 
-    debug_shader = link_program(
-        compile_shader("shaders/debug_vs.glsl", GL_VERTEX_SHADER),
-        compile_shader("shaders/debug_fs.glsl", GL_FRAGMENT_SHADER));
+    // Generate cube vao
+    {
+        glGenBuffers(1, &cube_vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, cube_vbo);
+
+        const Vec3* cube_vertices = generate_cube_mesh();
+
+        glBufferData(GL_ARRAY_BUFFER, 72 * sizeof(Vec3), cube_vertices, GL_STATIC_DRAW);
+
+        glGenVertexArrays(1, &cube_vao);
+        glBindVertexArray(cube_vao);
+
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 2 * sizeof(Vec3), (const void*)0);
+
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 2 * sizeof(Vec3), (const void*)sizeof(Vec3));
+
+        simple_shader = link_program(
+            compile_shader("shaders/simple_vs.glsl", GL_VERTEX_SHADER),
+            compile_shader("shaders/simple_fs.glsl", GL_FRAGMENT_SHADER)
+        );
+    }
 }
 
 void Renderer::update_screen_size(SDL_Window* window)
@@ -177,53 +242,52 @@ void Renderer::present(SDL_Window* window)
     update_screen_size(window);
 }
 
-void Renderer::debug_draw_rectangle(Rectangle rect, float r, float g, float b) const
+void Renderer::debug_draw_rectangle(Transform2d rect, float r, float g, float b) const
 {
-    float cosine = cosf(rect.rotation);
-    float sine = sinf(rect.rotation);
-    Mat2 rotation(cosine, -sine,
-                  sine,    cosine);
+    Mat2 rotation = Mat2::Rotation(rect.rotation);
 
     glBindVertexArray(rect_vao);
     glUseProgram(debug_shader);
 
     GLint camera_loc   = glGetUniformLocation(debug_shader, "camera");
-    GLint color_loc    = glGetUniformLocation(debug_shader, "color");
-    GLint position_loc = glGetUniformLocation(debug_shader, "position");
-    GLint rotation_loc = glGetUniformLocation(debug_shader, "rotation");
-    GLint scale_loc    = glGetUniformLocation(debug_shader, "scale");
-
     glUniformMatrix4fv(camera_loc, 1, GL_TRUE, camera_matrix.data);
+
+    GLint color_loc    = glGetUniformLocation(debug_shader, "color");
     glUniform3f(color_loc, r, g, b);
-    glUniform2f(position_loc, rect.pos.x, rect.pos.y);
+
+    GLint position_loc = glGetUniformLocation(debug_shader, "position");
+    glUniform2fv(position_loc, 1, rect.pos.array());
+
+    GLint rotation_loc = glGetUniformLocation(debug_shader, "rotation");
     glUniformMatrix2fv(rotation_loc, 1, GL_TRUE, rotation.data);
-    glUniform2f(scale_loc, rect.scale.x, rect.scale.y);
+
+    GLint scale_loc    = glGetUniformLocation(debug_shader, "scale");
+    glUniform2fv(scale_loc, 1, rect.scale.array());
 
     glDrawArrays(GL_LINE_LOOP, 0, 4);
 }
 
-/*
-Vec2 Renderer::pixels_to_screen(int x, int y) const
+void Renderer::draw_box(Transform3d box)
 {
-    // The +0.5f shifts the coordinate to the centre of the pixel
-    Vec2 screen_coord = Vec2(x, y) - 0.5f * Vec2(width, height) + Vec2(0.5f, 0.5f);
-    screen_coord /= pixels_per_metre;
-    screen_coord.y = -screen_coord.y;
-    return screen_coord;
-}
+    Mat3 rotation = Mat3::RotateZ(box.rotation);
 
-Vec2 Renderer::pixels_to_world(int x, int y) const
-{
-    return screen_to_world(pixels_to_screen(x, y));
-}
+    glBindVertexArray(cube_vao);
+    glUseProgram(simple_shader);
 
-Vec2 Renderer::screen_to_world(Vec2 screen) const
-{
-    return screen + camera;
-}
+    GLint camera_loc   = glGetUniformLocation(simple_shader, "camera");
+    glUniformMatrix4fv(camera_loc, 1, GL_TRUE, camera_matrix.data);
 
-Vec2 Renderer::world_to_screen(Vec2 world) const
-{
-    return world - camera;
+    GLint rotation_loc = glGetUniformLocation(simple_shader, "rotation");
+    glUniformMatrix3fv(rotation_loc, 1, GL_TRUE, rotation.data);
+
+    GLint scale_loc = glGetUniformLocation(simple_shader, "scale");
+    glUniform3fv(scale_loc, 1, box.scale.array());
+
+    GLint position_loc = glGetUniformLocation(simple_shader, "position");
+    glUniform3fv(position_loc, 1, box.pos.array());
+
+    GLint light_direction_loc = glGetUniformLocation(simple_shader, "light_direction");
+    glUniform3fv(light_direction_loc, 1, light_direction.normalize().array());
+
+    glDrawArrays(GL_TRIANGLES, 0, 36);
 }
-*/
