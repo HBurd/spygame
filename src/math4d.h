@@ -48,6 +48,7 @@ struct Mat4
     static Mat4 Diagonal(const Vec4& diag);
 
     static Mat4 Perspective(float near, float far, float fov, float aspect_ratio);
+    static Mat4 Orthographic(float near, float far, float width, float height);
     static Mat4 Translate(Vec3 translation);
 
     Mat4 transpose() const;

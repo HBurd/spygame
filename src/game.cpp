@@ -10,7 +10,67 @@
 
 using namespace math;
 
+struct CameraView
+{
+    float fov = 0.5f * 3.14159265f;
+    float near = 1.0f;
+    float far = 100.0f;
+    float distance = 5.0f;
+    float yaw = 0.0f;
+    float pitch = 0.1f;
+
+    Vec3 target;
+
+    // Pixel coordinates are measured in pixels from the top-left of the window
+    Vec3 pixel_direction(int x, int y, int width, int height) const;
+    Vec3 compute_position() const;
+    Mat3 compute_rotation() const;
+    Mat4 compute_matrix(float aspect_ratio) const;
+};
+
+Vec3 CameraView::pixel_direction(int x, int y, int width, int height) const
+{
+    // The +0.5f shifts the coordinate to the centre of the pixel
+    Vec3 dir = Vec3(x, y, 0.0f) - 0.5f * Vec3(width, height, 0.0f) + Vec3(0.5f, 0.5f, 0.0f);
+
+    // Flip the y axis to point up
+    dir.y = -dir.y;
+
+    // Width of the rectangle filling the screen at distance cos(fov/2) from the camera
+    float image_width = 2.0f * sinf(0.5f * fov);
+
+    // Scale to the size of this rectangle
+    dir *= image_width / width;
+
+    // Move onto this rectangle
+    dir.z = -cosf(0.5f * fov);
+
+    // Apply camera rotation
+    dir = compute_rotation() * dir;
+
+    return dir;
+}
+
+Vec3 CameraView::compute_position() const
+{
+    return target + compute_rotation() * Vec3(0.0f, 0.0f, distance);
+}
+
+Mat3 CameraView::compute_rotation() const
+{
+    return Mat3::RotateZ(yaw) * Mat3::RotateX(pitch);
+}
+
+Mat4 CameraView::compute_matrix(float aspect_ratio) const
+{
+    return Mat4::Perspective(near, far, fov, aspect_ratio)
+           * Mat4::Translate(Vec3(0.0f, 0.0f, -distance))
+           * Mat4(compute_rotation().transpose())
+           * Mat4::Translate(-target);
+}
+
 CameraView camera;
+CameraView light;
 
 Transform2d player;
 
@@ -186,6 +246,7 @@ Transform2d* selected_object = nullptr;
 Vec2 selection_offset;
 
 bool show_imgui_demo = false;
+bool show_light_window = false;
 
 void update_game(float dt, const Renderer* renderer)
 {
@@ -210,6 +271,7 @@ void update_game(float dt, const Renderer* renderer)
             if (ImGui::BeginMenu("View"))
             {
                 ImGui::MenuItem("ImGui demo window", nullptr, &show_imgui_demo);
+                ImGui::MenuItem("Light source", nullptr, &show_light_window);
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
@@ -261,6 +323,22 @@ void update_game(float dt, const Renderer* renderer)
         if (show_imgui_demo)
         {
             ImGui::ShowDemoWindow(&show_imgui_demo);
+        }
+
+        if (show_light_window)
+        {
+            if (ImGui::Begin("Light Source", &show_light_window))
+            {
+                ImGui::InputFloat3("target", light.target.array());
+                ImGui::SliderFloat("Pitch", &light.pitch, 0.0f, M_PI);
+                ImGui::SliderFloat("Yaw", &light.yaw, 0.0f, 2.0f * M_PI);
+                ImGui::InputFloat("Distance", &light.distance);
+                ImGui::InputFloat("Near", &light.near);
+                ImGui::InputFloat("Far", &light.far);
+                ImGui::SliderFloat("FOV", &light.fov, 0.0f, 3.0f);
+                ImGui::Image((void*)(intptr_t)renderer->shadow_tex, ImVec2(200.0f, 200.0f));
+            }
+            ImGui::End();
         }
     }
 
@@ -355,10 +433,8 @@ void update_game(float dt, const Renderer* renderer)
     }
 }
 
-void render_game(Renderer* renderer)
+void draw_scene(Renderer* renderer)
 {
-    renderer->prepare(camera);
-
     for (auto& wall : all_walls)
     {
         float r, g, b;
@@ -374,16 +450,28 @@ void render_game(Renderer* renderer)
             g = 1.0f;
             b = 0.0f;
         }
-        renderer->debug_draw_rectangle(wall, r, g, b);
 
         Transform3d box_transform(Vec3(wall.pos.x, wall.pos.y, 0.5f), Vec3(wall.scale.x, wall.scale.y, 1.0f), wall.rotation);
         renderer->draw_box(box_transform);
     }
 
     // Draw player
-    renderer->debug_draw_rectangle(player, 0.0f, 0.0f, 1.0f);
+    //renderer->debug_draw_rectangle(player, 0.0f, 0.0f, 1.0f);
 
     // Draw ground
     Transform3d ground_transform(Vec3(0.0f, 0.0f, -0.1f), Vec3(20.0f, 20.0f, 0.2f), 0.0f);
     renderer->draw_box(ground_transform);
+}
+
+void render_game(Renderer* renderer)
+{
+    renderer->camera_matrix = camera.compute_matrix(float(renderer->width) / float(renderer->height));
+    renderer->light_matrix  = light.compute_matrix(1.0f);
+    renderer->light_pos = light.compute_position();
+
+    renderer->prepare_shadow_draw();
+    draw_scene(renderer);
+
+    renderer->prepare_final_draw();
+    draw_scene(renderer);
 }

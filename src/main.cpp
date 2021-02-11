@@ -102,9 +102,10 @@ int main()
         // TODO: frame timing
         update_game(1.0f / 60.0f, &renderer);
 
-        ImGui::Render();
 
         render_game(&renderer);
+
+        ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         renderer.present(window);

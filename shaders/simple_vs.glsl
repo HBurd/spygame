@@ -3,19 +3,26 @@
 layout (location = 0) in vec3 offset;
 layout (location = 1) in vec3 normal;
 
-out vec3 color;
+out VS_OUT
+{
+    vec3 world_normal;
+    vec3 world_pos;
+    vec4 light_coord;
+} vs_out;
 
 uniform vec3 position;
 uniform mat3 rotation;
 uniform vec3 scale;
 
 uniform mat4 camera;
-uniform vec3 light_direction;
+uniform mat4 light;
 
 void main()
 {
-    vec3 out_pos = position + rotation * (scale * offset);
+    vs_out.world_pos = position + rotation * (scale * offset);
 
-    gl_Position = camera * vec4(out_pos, 1.0f);
-    color = -dot(rotation * normalize(normal / scale), light_direction) * vec3(1.0f, 1.0f, 1.0f);
+    vs_out.world_normal = normalize(rotation * (normal / scale));
+    vs_out.light_coord = light * vec4(vs_out.world_pos, 1.0f);
+
+    gl_Position = camera * vec4(vs_out.world_pos, 1.0f);
 }

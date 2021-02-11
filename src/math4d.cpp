@@ -170,6 +170,15 @@ Mat4 Mat4::Perspective(float near, float far, float fov, float aspect_ratio)
         0.0f, 0.0f, -1.0f, 0.0f);
 }
 
+Mat4 Mat4::Orthographic(float near, float far, float width, float height)
+{
+    return Mat4(
+        2.0f / width, 0.0f, 0.0f, 0.0f,
+        0.0f, 2.0f / height, 0.0f, 0.0f,
+        0.0f, 0.0f, -2.0f / (far - near), -(far + near) / (far - near),
+        0.0f, 0.0f, 0.0f, 1.0f);
+}
+
 Mat4 Mat4::Translate(Vec3 translation)
 {
     return Mat4(

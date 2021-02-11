@@ -115,39 +115,6 @@ static const Vec3* generate_cube_mesh()
     return cube_mesh;
 }
 
-Vec3 CameraView::pixel_direction(int x, int y, int width, int height) const
-{
-    // The +0.5f shifts the coordinate to the centre of the pixel
-    Vec3 dir = Vec3(x, y, 0.0f) - 0.5f * Vec3(width, height, 0.0f) + Vec3(0.5f, 0.5f, 0.0f);
-
-    // Flip the y axis to point up
-    dir.y = -dir.y;
-
-    // Width of the rectangle filling the screen at distance cos(fov/2) from the camera
-    float image_width = 2.0f * sinf(0.5f * fov);
-
-    // Scale to the size of this rectangle
-    dir *= image_width / width;
-
-    // Move onto this rectangle
-    dir.z = -cosf(0.5f * fov);
-
-    // Apply camera rotation
-    dir = compute_rotation() * dir;
-
-    return dir;
-}
-
-Vec3 CameraView::compute_position() const
-{
-    return target + compute_rotation() * Vec3(0.0f, 0.0f, distance);
-}
-
-Mat3 CameraView::compute_rotation() const
-{
-    return Mat3::RotateZ(yaw) * Mat3::RotateX(pitch);
-}
-
 Renderer::Renderer(SDL_Window* window)
 {
     update_screen_size(window);
@@ -203,6 +170,39 @@ Renderer::Renderer(SDL_Window* window)
             compile_shader("shaders/simple_fs.glsl", GL_FRAGMENT_SHADER)
         );
     }
+
+    // Set up shadows
+    {
+        glGenTextures(1, &shadow_tex);
+        glBindTexture(GL_TEXTURE_2D, shadow_tex);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LESS);
+
+        glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT32F, 1024, 1024);
+
+        glGenFramebuffers(1, &shadow_fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
+
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadow_tex, 0);
+
+        // Tell OpenGL that the framebuffer does not have a color component
+        glDrawBuffer(GL_NONE);
+        glReadBuffer(GL_NONE);
+
+        assert(GL_FRAMEBUFFER_COMPLETE == glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER));
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        shadow_shader = link_program(
+            compile_shader("shaders/shadow_vs.glsl", GL_VERTEX_SHADER),
+            compile_shader("shaders/shadow_fs.glsl", GL_FRAGMENT_SHADER)
+        );
+    }
 }
 
 void Renderer::update_screen_size(SDL_Window* window)
@@ -218,22 +218,44 @@ void Renderer::update_screen_size(SDL_Window* window)
     }
 }
 
-void Renderer::clear() const
+void Renderer::prepare_shadow_draw()
 {
-    // TODO: Should this be set somewhere else?
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glViewport(0, 0, 1024, 1024);
+    glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
+
+    //glDepthRange(0.0, 1.0);
+
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    glUseProgram(shadow_shader);
+    selected_shader = shadow_shader;
+
+    GLint light_matrix_loc = glGetUniformLocation(selected_shader, "light");
+    glUniformMatrix4fv(light_matrix_loc, 1, GL_TRUE, light_matrix.data);
 }
 
-void Renderer::prepare(CameraView camera)
+void Renderer::prepare_final_draw()
 {
-    clear();
+    glViewport(0, 0, width, height);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    camera_matrix =
-        Mat4::Perspective(camera.near, camera.far, camera.fov, float(width)/float(height))
-        * Mat4::Translate(Vec3(0.0f, 0.0f, -camera.distance))
-        * Mat4(camera.compute_rotation().transpose())
-        * Mat4::Translate(-camera.target);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glUseProgram(simple_shader);
+    selected_shader = simple_shader;
+
+    GLint camera_loc = glGetUniformLocation(selected_shader, "camera");
+    glUniformMatrix4fv(camera_loc, 1, GL_TRUE, camera_matrix.data);
+
+    GLint light_pos_loc = glGetUniformLocation(selected_shader, "light_pos");
+    glUniform3fv(light_pos_loc, 1, light_pos.array());
+
+    GLint light_matrix_loc = glGetUniformLocation(selected_shader, "light");
+    glUniformMatrix4fv(light_matrix_loc, 1, GL_TRUE, light_matrix.data);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, shadow_tex);
 }
 
 void Renderer::present(SDL_Window* window)
@@ -249,8 +271,6 @@ void Renderer::debug_draw_rectangle(Transform2d rect, float r, float g, float b)
     glBindVertexArray(rect_vao);
     glUseProgram(debug_shader);
 
-    GLint camera_loc   = glGetUniformLocation(debug_shader, "camera");
-    glUniformMatrix4fv(camera_loc, 1, GL_TRUE, camera_matrix.data);
 
     GLint color_loc    = glGetUniformLocation(debug_shader, "color");
     glUniform3f(color_loc, r, g, b);
@@ -272,22 +292,15 @@ void Renderer::draw_box(Transform3d box)
     Mat3 rotation = Mat3::RotateZ(box.rotation);
 
     glBindVertexArray(cube_vao);
-    glUseProgram(simple_shader);
 
-    GLint camera_loc   = glGetUniformLocation(simple_shader, "camera");
-    glUniformMatrix4fv(camera_loc, 1, GL_TRUE, camera_matrix.data);
-
-    GLint rotation_loc = glGetUniformLocation(simple_shader, "rotation");
+    GLint rotation_loc = glGetUniformLocation(selected_shader, "rotation");
     glUniformMatrix3fv(rotation_loc, 1, GL_TRUE, rotation.data);
 
-    GLint scale_loc = glGetUniformLocation(simple_shader, "scale");
+    GLint scale_loc = glGetUniformLocation(selected_shader, "scale");
     glUniform3fv(scale_loc, 1, box.scale.array());
 
-    GLint position_loc = glGetUniformLocation(simple_shader, "position");
+    GLint position_loc = glGetUniformLocation(selected_shader, "position");
     glUniform3fv(position_loc, 1, box.pos.array());
-
-    GLint light_direction_loc = glGetUniformLocation(simple_shader, "light_direction");
-    glUniform3fv(light_direction_loc, 1, light_direction.normalize().array());
 
     glDrawArrays(GL_TRIANGLES, 0, 36);
 }
