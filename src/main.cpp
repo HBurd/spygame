@@ -13,6 +13,9 @@
 #define INITIAL_SCREEN_WIDTH 800
 #define INITIAL_SCREEN_HEIGHT 600
 
+using render::init_rendering;
+using render::present_screen;
+
 int main()
 {
     SDL_Init(SDL_INIT_VIDEO);
@@ -67,9 +70,8 @@ int main()
         ImGui::GetStyle().FrameRounding = 4.0f;
     }
 
+    init_rendering(window);
     init_game();
-
-    Renderer renderer(window);
 
     bool running = true;
 
@@ -100,15 +102,15 @@ int main()
         }
 
         // TODO: frame timing
-        update_game(1.0f / 60.0f, &renderer);
+        update_game(1.0f / 60.0f);
 
 
-        render_game(&renderer);
+        render_game();
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-        renderer.present(window);
+        present_screen(window);
     }
 
     SDL_Quit();

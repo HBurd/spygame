@@ -11,39 +11,35 @@
 
 struct SDL_Window;
 
-struct Renderer
+namespace render {
+
+struct LightSource
 {
-    int width = 0;
-    int height = 0;
+    GLuint fbo;
+    GLuint texture;
+    int side;
 
-    math::Vec3 light_pos;
-    math::Mat4 light_matrix;
+    math::Mat4 matrix;
+    math::Vec3 pos;
 
-    math::Mat4 camera_matrix;
+    bool initialized = false;
 
-    GLuint rect_vbo;
-    GLuint rect_vao;
-    GLuint debug_shader;
-
-    GLuint cube_vbo;
-    GLuint cube_vao;
-    GLuint simple_shader;
-
-    GLuint shadow_fbo;
-    GLuint shadow_tex;
-    GLuint shadow_shader;
-
-    GLuint selected_shader;
-
-    Renderer(SDL_Window* window);
-
-    // This is called automatically by the constructor and after present()
-    void update_screen_size(SDL_Window* window);
-
-    void prepare_final_draw();
-    void prepare_shadow_draw();
-    void present(SDL_Window* window);
-
-    void debug_draw_rectangle(Transform2d rect, float r, float g, float b) const;
-    void draw_box(Transform3d box);
+    // Must be called after init_rendering().
+    // RAII isn't used because it wouldn't allow statically allocating light sources.
+    void init(int side_);
+    void prepare_draw();
 };
+
+
+void init_rendering(SDL_Window* window);
+void prepare_final_draw(math::Mat4 camera_matrix, LightSource light);
+void draw_box(Transform3d box);
+int get_screen_width();
+int get_screen_height();
+
+// Returns width / height
+float get_aspect_ratio();
+
+void present_screen(SDL_Window* window);
+
+}

@@ -9,11 +9,12 @@
 #include <cmath>
 
 using namespace math;
+using namespace render;
 
 struct CameraView
 {
     float fov = 0.5f * 3.14159265f;
-    float near = 1.0f;
+    float near = 0.1f;
     float far = 100.0f;
     float distance = 5.0f;
     float yaw = 0.0f;
@@ -72,6 +73,8 @@ Mat4 CameraView::compute_matrix(float aspect_ratio) const
 CameraView camera;
 CameraView light;
 
+LightSource light_source;
+
 Transform2d player;
 
 Vec2 player_velocity;
@@ -80,6 +83,7 @@ MAKE_ARRAY(all_walls, Transform2d, 1024);
 
 void init_game()
 {
+    light_source.init(1024);
     all_walls.push(Transform2d({2.0f, 0.0f}, {0.5f, 5.0f}, 0.1f));
     all_walls.push(Transform2d({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
 }
@@ -248,7 +252,7 @@ Vec2 selection_offset;
 bool show_imgui_demo = false;
 bool show_light_window = false;
 
-void update_game(float dt, const Renderer* renderer)
+void update_game(float dt)
 {
     if (get_key_state(SDL_SCANCODE_GRAVE).down)
     {
@@ -280,7 +284,7 @@ void update_game(float dt, const Renderer* renderer)
         // Handle object selection with mouse
         {
             MouseState mouse = get_mouse_state();
-            Vec3 mouse_dir = camera.pixel_direction(mouse.x, mouse.y, renderer->width, renderer->height);
+            Vec3 mouse_dir = camera.pixel_direction(mouse.x, mouse.y, get_screen_width(), get_screen_height());
             Vec2 mouse_pos = z_intersect(camera.compute_position(), mouse_dir, 0.0f);
 
             if (mouse.left.down)
@@ -336,7 +340,7 @@ void update_game(float dt, const Renderer* renderer)
                 ImGui::InputFloat("Near", &light.near);
                 ImGui::InputFloat("Far", &light.far);
                 ImGui::SliderFloat("FOV", &light.fov, 0.0f, 3.0f);
-                ImGui::Image((void*)(intptr_t)renderer->shadow_tex, ImVec2(200.0f, 200.0f));
+                ImGui::Image((void*)(intptr_t)light_source.texture, ImVec2(200.0f, 200.0f));
             }
             ImGui::End();
         }
@@ -433,7 +437,7 @@ void update_game(float dt, const Renderer* renderer)
     }
 }
 
-void draw_scene(Renderer* renderer)
+static void draw_scene()
 {
     for (auto& wall : all_walls)
     {
@@ -452,7 +456,7 @@ void draw_scene(Renderer* renderer)
         }
 
         Transform3d box_transform(Vec3(wall.pos.x, wall.pos.y, 0.5f), Vec3(wall.scale.x, wall.scale.y, 1.0f), wall.rotation);
-        renderer->draw_box(box_transform);
+        draw_box(box_transform);
     }
 
     // Draw player
@@ -460,18 +464,16 @@ void draw_scene(Renderer* renderer)
 
     // Draw ground
     Transform3d ground_transform(Vec3(0.0f, 0.0f, -0.1f), Vec3(20.0f, 20.0f, 0.2f), 0.0f);
-    renderer->draw_box(ground_transform);
+    draw_box(ground_transform);
 }
 
-void render_game(Renderer* renderer)
+void render_game()
 {
-    renderer->camera_matrix = camera.compute_matrix(float(renderer->width) / float(renderer->height));
-    renderer->light_matrix  = light.compute_matrix(1.0f);
-    renderer->light_pos = light.compute_position();
+    light_source.matrix = light.compute_matrix(1.0f);
+    light_source.pos = light.compute_position();
+    light_source.prepare_draw();
+    draw_scene();
 
-    renderer->prepare_shadow_draw();
-    draw_scene(renderer);
-
-    renderer->prepare_final_draw();
-    draw_scene(renderer);
+    prepare_final_draw(camera.compute_matrix(get_aspect_ratio()), light_source);
+    draw_scene();
 }

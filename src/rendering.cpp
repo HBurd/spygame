@@ -16,6 +16,24 @@ using math::Mat2;
 using math::Mat3;
 using math::Mat4;
 
+// Shaders
+GLuint light_map_shader;
+GLuint simple_shader;
+GLuint debug_shader;
+
+// The shader to be used in draw_* functions
+GLuint selected_shader;
+
+// OpelGL objects for basic meshes
+GLuint rect_vbo;
+GLuint rect_vao;
+
+GLuint cube_vbo;
+GLuint cube_vao;
+
+int screen_width;
+int screen_height;
+
 static GLint compile_shader(const char* filename, GLuint shader_type)
 {
     FILE* shader_file = fopen(filename, "r");
@@ -76,6 +94,17 @@ static GLuint link_program(GLint vshader, GLint fshader)
     return program;
 }
 
+static GLuint load_shader(const char* vname, const char* fname)
+{
+    return link_program(compile_shader(vname, GL_VERTEX_SHADER),
+                        compile_shader(fname, GL_FRAGMENT_SHADER));
+}
+
+static void sample_screen_size(SDL_Window* window)
+{
+    SDL_GetWindowSize(window, &screen_width, &screen_height);
+}
+
 // Returns cube positions interleaved with normals
 static const Vec3* generate_cube_mesh()
 {
@@ -115,9 +144,60 @@ static const Vec3* generate_cube_mesh()
     return cube_mesh;
 }
 
-Renderer::Renderer(SDL_Window* window)
+// Public API
+
+namespace render {
+
+void LightSource::init(int side_)
 {
-    update_screen_size(window);
+    side = side_;
+
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LESS);
+
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT32F, side, side);
+
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, texture, 0);
+
+    // Tell OpenGL that the framebuffer does not have a color component
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+
+    assert(GL_FRAMEBUFFER_COMPLETE == glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER));
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    initialized = true;
+}
+
+void LightSource::prepare_draw()
+{
+    assert(initialized);
+    glViewport(0, 0, side, side);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    glUseProgram(light_map_shader);
+    selected_shader = light_map_shader;
+
+    GLint loc = glGetUniformLocation(selected_shader, "light");
+    glUniformMatrix4fv(loc, 1, GL_TRUE, matrix.data);
+}
+
+void init_rendering(SDL_Window* window)
+{
+    sample_screen_size(window);
 
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
@@ -142,9 +222,7 @@ Renderer::Renderer(SDL_Window* window)
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (const void*)0);
 
-        debug_shader = link_program(
-            compile_shader("shaders/debug_vs.glsl", GL_VERTEX_SHADER),
-            compile_shader("shaders/debug_fs.glsl", GL_FRAGMENT_SHADER));
+        debug_shader = load_shader("shaders/debug_vs.glsl", "shaders/debug_fs.glsl");
     }
 
     // Generate cube vao
@@ -165,78 +243,15 @@ Renderer::Renderer(SDL_Window* window)
         glEnableVertexAttribArray(1);
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 2 * sizeof(Vec3), (const void*)sizeof(Vec3));
 
-        simple_shader = link_program(
-            compile_shader("shaders/simple_vs.glsl", GL_VERTEX_SHADER),
-            compile_shader("shaders/simple_fs.glsl", GL_FRAGMENT_SHADER)
-        );
+        simple_shader = load_shader("shaders/simple_vs.glsl", "shaders/simple_fs.glsl");
     }
 
-    // Set up shadows
-    {
-        glGenTextures(1, &shadow_tex);
-        glBindTexture(GL_TEXTURE_2D, shadow_tex);
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LESS);
-
-        glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT32F, 1024, 1024);
-
-        glGenFramebuffers(1, &shadow_fbo);
-        glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
-
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadow_tex, 0);
-
-        // Tell OpenGL that the framebuffer does not have a color component
-        glDrawBuffer(GL_NONE);
-        glReadBuffer(GL_NONE);
-
-        assert(GL_FRAMEBUFFER_COMPLETE == glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER));
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        shadow_shader = link_program(
-            compile_shader("shaders/shadow_vs.glsl", GL_VERTEX_SHADER),
-            compile_shader("shaders/shadow_fs.glsl", GL_FRAGMENT_SHADER)
-        );
-    }
+    light_map_shader = load_shader("shaders/shadow_vs.glsl", "shaders/shadow_fs.glsl");
 }
 
-void Renderer::update_screen_size(SDL_Window* window)
+void prepare_final_draw(Mat4 camera_matrix, LightSource light)
 {
-    // Only update if necessary
-    int new_width, new_height;
-    SDL_GetWindowSize(window, &new_width, &new_height);
-    if (new_width != width || new_height != height)
-    {
-        width = new_width;
-        height = new_height;
-        glViewport(0, 0, width, height);
-    }
-}
-
-void Renderer::prepare_shadow_draw()
-{
-    glViewport(0, 0, 1024, 1024);
-    glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
-
-    //glDepthRange(0.0, 1.0);
-
-    glClear(GL_DEPTH_BUFFER_BIT);
-
-    glUseProgram(shadow_shader);
-    selected_shader = shadow_shader;
-
-    GLint light_matrix_loc = glGetUniformLocation(selected_shader, "light");
-    glUniformMatrix4fv(light_matrix_loc, 1, GL_TRUE, light_matrix.data);
-}
-
-void Renderer::prepare_final_draw()
-{
-    glViewport(0, 0, width, height);
+    glViewport(0, 0, screen_width, screen_height);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -245,25 +260,44 @@ void Renderer::prepare_final_draw()
     glUseProgram(simple_shader);
     selected_shader = simple_shader;
 
-    GLint camera_loc = glGetUniformLocation(selected_shader, "camera");
-    glUniformMatrix4fv(camera_loc, 1, GL_TRUE, camera_matrix.data);
+    GLint loc = glGetUniformLocation(selected_shader, "camera");
+    glUniformMatrix4fv(loc, 1, GL_TRUE, camera_matrix.data);
 
-    GLint light_pos_loc = glGetUniformLocation(selected_shader, "light_pos");
-    glUniform3fv(light_pos_loc, 1, light_pos.array());
+    loc = glGetUniformLocation(selected_shader, "light_pos");
+    glUniform3fv(loc, 1, light.pos.array());
 
-    GLint light_matrix_loc = glGetUniformLocation(selected_shader, "light");
-    glUniformMatrix4fv(light_matrix_loc, 1, GL_TRUE, light_matrix.data);
+    loc = glGetUniformLocation(selected_shader, "light");
+    glUniformMatrix4fv(loc, 1, GL_TRUE, light.matrix.data);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, shadow_tex);
+    glBindTexture(GL_TEXTURE_2D, light.texture);
 }
 
-void Renderer::present(SDL_Window* window)
+void draw_box(Transform3d box)
+{
+    Mat3 rotation = Mat3::RotateZ(box.rotation);
+
+    glBindVertexArray(cube_vao);
+
+    GLint loc = glGetUniformLocation(selected_shader, "rotation");
+    glUniformMatrix3fv(loc, 1, GL_TRUE, rotation.data);
+
+    loc = glGetUniformLocation(selected_shader, "scale");
+    glUniform3fv(loc, 1, box.scale.array());
+
+    loc = glGetUniformLocation(selected_shader, "position");
+    glUniform3fv(loc, 1, box.pos.array());
+
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+}
+
+void present_screen(SDL_Window* window)
 {
     SDL_GL_SwapWindow(window);
-    update_screen_size(window);
+    sample_screen_size(window);
 }
 
+/*
 void Renderer::debug_draw_rectangle(Transform2d rect, float r, float g, float b) const
 {
     Mat2 rotation = Mat2::Rotation(rect.rotation);
@@ -286,21 +320,22 @@ void Renderer::debug_draw_rectangle(Transform2d rect, float r, float g, float b)
 
     glDrawArrays(GL_LINE_LOOP, 0, 4);
 }
+*/
 
-void Renderer::draw_box(Transform3d box)
+int get_screen_width()
 {
-    Mat3 rotation = Mat3::RotateZ(box.rotation);
+    return screen_width;
+}
 
-    glBindVertexArray(cube_vao);
+int get_screen_height()
+{
+    return screen_height;
+}
 
-    GLint rotation_loc = glGetUniformLocation(selected_shader, "rotation");
-    glUniformMatrix3fv(rotation_loc, 1, GL_TRUE, rotation.data);
+// Returns width / height
+float get_aspect_ratio()
+{
+    return float(screen_width) / float(screen_height);
+}
 
-    GLint scale_loc = glGetUniformLocation(selected_shader, "scale");
-    glUniform3fv(scale_loc, 1, box.scale.array());
-
-    GLint position_loc = glGetUniformLocation(selected_shader, "position");
-    glUniform3fv(position_loc, 1, box.pos.array());
-
-    glDrawArrays(GL_TRIANGLES, 0, 36);
 }
