@@ -291,14 +291,18 @@ void draw_box(Transform3d box)
     glDrawArrays(GL_TRIANGLES, 0, 36);
 }
 
-void present_screen(SDL_Window* window)
+void prepare_debug_draw(Mat4 camera_matrix)
 {
-    SDL_GL_SwapWindow(window);
-    sample_screen_size(window);
+    glViewport(0, 0, screen_width, screen_height);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glUseProgram(debug_shader);
+
+    GLint loc = glGetUniformLocation(debug_shader, "camera");
+    glUniformMatrix4fv(loc, 1, GL_TRUE, camera_matrix.data);
 }
 
-/*
-void Renderer::debug_draw_rectangle(Transform2d rect, float r, float g, float b) const
+void debug_draw_rectangle(Transform2d rect, float r, float g, float b)
 {
     Mat2 rotation = Mat2::Rotation(rect.rotation);
 
@@ -306,21 +310,30 @@ void Renderer::debug_draw_rectangle(Transform2d rect, float r, float g, float b)
     glUseProgram(debug_shader);
 
 
-    GLint color_loc    = glGetUniformLocation(debug_shader, "color");
-    glUniform3f(color_loc, r, g, b);
+    GLint loc = glGetUniformLocation(debug_shader, "color");
+    glUniform3f(loc, r, g, b);
 
-    GLint position_loc = glGetUniformLocation(debug_shader, "position");
-    glUniform2fv(position_loc, 1, rect.pos.array());
+    loc = glGetUniformLocation(debug_shader, "position");
+    glUniform2fv(loc, 1, rect.pos.array());
 
-    GLint rotation_loc = glGetUniformLocation(debug_shader, "rotation");
-    glUniformMatrix2fv(rotation_loc, 1, GL_TRUE, rotation.data);
+    loc = glGetUniformLocation(debug_shader, "rotation");
+    glUniformMatrix2fv(loc, 1, GL_TRUE, rotation.data);
 
-    GLint scale_loc    = glGetUniformLocation(debug_shader, "scale");
-    glUniform2fv(scale_loc, 1, rect.scale.array());
+    loc = glGetUniformLocation(debug_shader, "scale");
+    glUniform2fv(loc, 1, rect.scale.array());
+
+    glDisable(GL_DEPTH_TEST);
 
     glDrawArrays(GL_LINE_LOOP, 0, 4);
+
+    glEnable(GL_DEPTH_TEST);
 }
-*/
+
+void present_screen(SDL_Window* window)
+{
+    SDL_GL_SwapWindow(window);
+    sample_screen_size(window);
+}
 
 int get_screen_width()
 {

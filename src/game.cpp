@@ -439,28 +439,11 @@ void update_game(float dt)
 
 static void draw_scene()
 {
-    for (auto& wall : all_walls)
+    for (auto wall : all_walls)
     {
-        float r, g, b;
-        if (&wall == selected_object)
-        {
-            r = 1.0f;
-            g = 1.0f;
-            b = 1.0f;
-        }
-        else
-        {
-            r = 0.0f;
-            g = 1.0f;
-            b = 0.0f;
-        }
-
         Transform3d box_transform(Vec3(wall.pos.x, wall.pos.y, 0.5f), Vec3(wall.scale.x, wall.scale.y, 1.0f), wall.rotation);
         draw_box(box_transform);
     }
-
-    // Draw player
-    //renderer->debug_draw_rectangle(player, 0.0f, 0.0f, 1.0f);
 
     // Draw ground
     Transform3d ground_transform(Vec3(0.0f, 0.0f, -0.1f), Vec3(20.0f, 20.0f, 0.2f), 0.0f);
@@ -476,4 +459,30 @@ void render_game()
 
     prepare_final_draw(camera.compute_matrix(get_aspect_ratio()), light_source);
     draw_scene();
+
+    if (editor_enabled)
+    {
+        prepare_debug_draw(camera.compute_matrix(get_aspect_ratio()));
+        for (auto wall : all_walls)
+        {
+            float r, g, b;
+            if (&wall == selected_object)
+            {
+                r = 1.0f;
+                g = 1.0f;
+                b = 1.0f;
+            }
+            else
+            {
+                r = 0.0f;
+                g = 1.0f;
+                b = 0.0f;
+            }
+
+            debug_draw_rectangle(wall, r, g, b);
+        }
+
+        // Draw player
+        debug_draw_rectangle(player, 0.0f, 0.0f, 1.0f);
+    }
 }
