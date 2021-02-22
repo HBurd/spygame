@@ -10,6 +10,7 @@ struct Vec4
 {
     float data[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 
+    Vec4() = default;
     Vec4(float d0, float d1, float d2, float d3);
 
     // Sets the fourth coordinate to 1.0;
