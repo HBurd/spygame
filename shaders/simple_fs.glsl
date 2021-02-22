@@ -7,10 +7,16 @@ in VS_OUT
     vec3 world_normal;
     vec3 world_pos;
     vec4 light_coord;
+    vec2 uv;
 } fs_in;
 
 uniform sampler2DShadow light_depth;
+uniform sampler2D color_texture;
+
 uniform vec3 light_pos;
+
+uniform bool lit;
+uniform bool textured;
 
 void main()
 {
@@ -18,5 +24,18 @@ void main()
     float brightness = -10 * dot(fs_in.world_normal, normalize(light_vector)) / dot(light_vector, light_vector);
     vec3 light_coord = (fs_in.light_coord.xyz / fs_in.light_coord.w) * 0.5f + 0.5f;
     light_coord.z -= 0.0005f;
-    frag_color = vec4(texture(light_depth, light_coord) * brightness * vec3(1.0f, 1.0f, 1.0f), 1.0f);
+
+    float lighting_factor = 1.0f;
+    if (lit)
+    {
+        lighting_factor = texture(light_depth, light_coord) * brightness;
+    }
+
+    vec3 color = vec3(1.0f, 1.0f, 1.0f);
+    if (textured)
+    {
+        color = texture(color_texture, fs_in.uv).rgb;
+    }
+
+    frag_color = vec4(lighting_factor * color, 1.0f);
 }

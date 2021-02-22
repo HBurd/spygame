@@ -6,6 +6,7 @@
 
 #include "GL/glew.h"
 #include "SDL2/SDL.h"
+#include "stb_image.h"
 
 #include <cstdio> // for shader loading
 #include <cstring> // for memcpy
@@ -21,15 +22,13 @@ GLuint light_map_shader;
 GLuint simple_shader;
 GLuint debug_shader;
 
-// The shader to be used in draw_* functions
+// The shader to be used in draw_* functions (except debug)
 GLuint selected_shader;
 
-// OpelGL objects for basic meshes
+// Basic meshes
+render::RenderObject cube;
 GLuint rect_vbo;
 GLuint rect_vao;
-
-GLuint cube_vbo;
-GLuint cube_vao;
 
 int screen_width;
 int screen_height;
@@ -105,27 +104,35 @@ static void sample_screen_size(SDL_Window* window)
     SDL_GetWindowSize(window, &screen_width, &screen_height);
 }
 
-// Returns cube positions interleaved with normals
-static const Vec3* generate_cube_mesh()
+struct Vertex
 {
-    static Vec3 cube_mesh[72];
+    Vec3 position;
+    Vec3 normal;
+    Vec2 uv;
 
-    const Vec3 front_face[12] = {
+    Vertex() = default;
+    Vertex(Vec3 position_, Vec3 normal_, Vec2 uv_)
+        : position(position_), normal(normal_), uv(uv_)
+    {}
+};
+
+static_assert(sizeof(Vertex) == 2 * sizeof(Vec3) + sizeof(Vec2), "Vertex type must be packed");
+
+// Returns cube positions interleaved with normals and uv coords
+static const Vertex* generate_cube_mesh()
+{
+    static Vertex cube_mesh[36];
+
+    const Vertex front_face[6] = {
         // Lower left
-        Vec3(-0.5f,  0.5f, 0.5f),
-        Vec3( 0.0f,  0.0f, 1.0f),
-        Vec3(-0.5f, -0.5f, 0.5f),
-        Vec3( 0.0f,  0.0f, 1.0f),
-        Vec3( 0.5f, -0.5f, 0.5f),
-        Vec3( 0.0f,  0.0f, 1.0f),
+        Vertex(Vec3(-0.5f,  0.5f, 0.5f), Vec3(0.0f, 0.0f, 1.0f), Vec2(0.25f, 2.0f / 3.0f)),
+        Vertex(Vec3(-0.5f, -0.5f, 0.5f), Vec3(0.0f, 0.0f, 1.0f), Vec2(0.25f, 1.0f / 3.0f)),
+        Vertex(Vec3( 0.5f, -0.5f, 0.5f), Vec3(0.0f, 0.0f, 1.0f), Vec2(0.5f,  1.0f / 3.0f)),
 
         // Upper right
-        Vec3( 0.5f, -0.5f, 0.5f),
-        Vec3( 0.0f,  0.0f, 1.0f),
-        Vec3( 0.5f,  0.5f, 0.5f),
-        Vec3( 0.0f,  0.0f, 1.0f),
-        Vec3(-0.5f,  0.5f, 0.5f),
-        Vec3( 0.0f,  0.0f, 1.0f),
+        Vertex(Vec3( 0.5f, -0.5f, 0.5f), Vec3(0.0f, 0.0f, 1.0f), Vec2(0.5f,  1.0f / 3.0f)),
+        Vertex(Vec3( 0.5f,  0.5f, 0.5f), Vec3(0.0f, 0.0f, 1.0f), Vec2(0.5f,  2.0f / 3.0f)),
+        Vertex(Vec3(-0.5f,  0.5f, 0.5f), Vec3(0.0f, 0.0f, 1.0f), Vec2(0.25f, 2.0f / 3.0f)),
     };
 
     const Mat3 x_rotate = Mat3::RotateX(0.5f * M_PI);
@@ -133,12 +140,27 @@ static const Vec3* generate_cube_mesh()
 
     for (int i = 0; i < ARRAY_LENGTH(front_face); ++i)
     {
-        cube_mesh[i]                                =                        front_face[i];
-        cube_mesh[i +     ARRAY_LENGTH(front_face)] =             x_rotate * front_face[i];
-        cube_mesh[i + 2 * ARRAY_LENGTH(front_face)] =  x_rotate * x_rotate * front_face[i];
-        cube_mesh[i + 3 * ARRAY_LENGTH(front_face)] = x_rotate.transpose() * front_face[i];
-        cube_mesh[i + 4 * ARRAY_LENGTH(front_face)] =             y_rotate * front_face[i];
-        cube_mesh[i + 5 * ARRAY_LENGTH(front_face)] = y_rotate.transpose() * front_face[i];
+        cube_mesh[i] = front_face[i];
+
+        cube_mesh[i +     ARRAY_LENGTH(front_face)] = Vertex(y_rotate * front_face[i].position,
+                                                             y_rotate * front_face[i].normal,
+                                                             Vec2(0.25f, 0.0f) + front_face[i].uv);
+
+        cube_mesh[i + 2 * ARRAY_LENGTH(front_face)] = Vertex(y_rotate * y_rotate * front_face[i].position,
+                                                             y_rotate * y_rotate * front_face[i].normal,
+                                                             Vec2(0.5f, 0.0f) + front_face[i].uv);
+
+        cube_mesh[i + 3 * ARRAY_LENGTH(front_face)] = Vertex(y_rotate.transpose() * front_face[i].position,
+                                                             y_rotate.transpose() * front_face[i].normal,
+                                                             Vec2(-0.25f, 0.0f) + front_face[i].uv);
+
+        cube_mesh[i + 4 * ARRAY_LENGTH(front_face)] = Vertex(x_rotate * front_face[i].position,
+                                                             x_rotate * front_face[i].normal,
+                                                             Vec2(0.0f, -1.0f / 3.0f) + front_face[i].uv);
+
+        cube_mesh[i + 5 * ARRAY_LENGTH(front_face)] = Vertex(x_rotate.transpose() * front_face[i].position,
+                                                             x_rotate.transpose() * front_face[i].normal,
+                                                             Vec2(0.0f, 1.0f / 3.0f) + front_face[i].uv);
     }
 
     return cube_mesh;
@@ -227,21 +249,26 @@ void init_rendering(SDL_Window* window)
 
     // Generate cube vao
     {
-        glGenBuffers(1, &cube_vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, cube_vbo);
+        cube.num_vertices = 36;
 
-        const Vec3* cube_vertices = generate_cube_mesh();
+        glGenBuffers(1, &cube.vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, cube.vbo);
 
-        glBufferData(GL_ARRAY_BUFFER, 72 * sizeof(Vec3), cube_vertices, GL_STATIC_DRAW);
+        const Vertex* cube_vertices = generate_cube_mesh();
 
-        glGenVertexArrays(1, &cube_vao);
-        glBindVertexArray(cube_vao);
+        glBufferData(GL_ARRAY_BUFFER, cube.num_vertices * sizeof(Vertex), cube_vertices, GL_STATIC_DRAW);
+
+        glGenVertexArrays(1, &cube.vao);
+        glBindVertexArray(cube.vao);
 
         glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 2 * sizeof(Vec3), (const void*)0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)0);
 
         glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 2 * sizeof(Vec3), (const void*)sizeof(Vec3));
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)sizeof(Vec3));
+
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)(2 * sizeof(Vec3)));
 
         simple_shader = load_shader("shaders/simple_vs.glsl", "shaders/simple_fs.glsl");
     }
@@ -277,7 +304,7 @@ void draw_box(Transform3d box)
 {
     Mat3 rotation = Mat3::RotateZ(box.rotation);
 
-    glBindVertexArray(cube_vao);
+    glBindVertexArray(cube.vao);
 
     GLint loc = glGetUniformLocation(selected_shader, "rotation");
     glUniformMatrix3fv(loc, 1, GL_TRUE, rotation.data);
@@ -288,7 +315,64 @@ void draw_box(Transform3d box)
     loc = glGetUniformLocation(selected_shader, "position");
     glUniform3fv(loc, 1, box.pos.array());
 
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+    loc = glGetUniformLocation(selected_shader, "lit");
+    glUniform1i(loc, cube.lit);
+
+    loc = glGetUniformLocation(selected_shader, "textured");
+    glUniform1i(loc, cube.textured);
+
+    // TODO: This has to be changed to allow multiple (shadowed) light sources
+    // Also this only really has to be done once per shader
+    loc = glGetUniformLocation(selected_shader, "light_depth");
+    glUniform1i(loc, 0);
+    loc = glGetUniformLocation(selected_shader, "color_texture");
+    glUniform1i(loc, 1);
+
+    if (cube.textured)
+    {
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, cube.texture);
+    }
+
+    glDrawArrays(GL_TRIANGLES, 0, cube.num_vertices);
+}
+
+void draw_skybox(RenderObject skybox, Vec3 camera_pos)
+{
+    glBindVertexArray(skybox.vao);
+
+    Mat3 rotation;
+    Vec3 scale(1.0f, 1.0f, 1.0f);
+
+    GLint loc = glGetUniformLocation(selected_shader, "rotation");
+    glUniformMatrix3fv(loc, 1, GL_TRUE, rotation.data);
+
+    loc = glGetUniformLocation(selected_shader, "scale");
+    glUniform3fv(loc, 1, scale.array());
+
+    loc = glGetUniformLocation(selected_shader, "position");
+    glUniform3fv(loc, 1, camera_pos.array());
+
+    loc = glGetUniformLocation(selected_shader, "lit");
+    glUniform1i(loc, skybox.lit);
+
+    loc = glGetUniformLocation(selected_shader, "textured");
+    glUniform1i(loc, skybox.textured);
+
+    loc = glGetUniformLocation(selected_shader, "color_texture");
+    glUniform1i(loc, 1);
+
+    if (skybox.textured)
+    {
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, skybox.texture);
+    }
+
+    glDepthMask(GL_FALSE);
+    glFrontFace(GL_CW);
+    glDrawArrays(GL_TRIANGLES, 0, skybox.num_vertices);
+    glFrontFace(GL_CCW);
+    glDepthMask(GL_TRUE);
 }
 
 void prepare_debug_draw(Mat4 camera_matrix)
@@ -349,6 +433,32 @@ int get_screen_height()
 float get_aspect_ratio()
 {
     return float(screen_width) / float(screen_height);
+}
+
+RenderObject create_skybox(const char* filename)
+{
+    // TODO: Something to think about: Can RenderObjects share opengl objects?
+    // What do we do when destroying a skybox? How do we know not to destroy cube?
+    RenderObject skybox = cube;
+    skybox.textured = true;
+    skybox.lit = false;
+
+    int w, h, n;
+    u8* image = stbi_load(filename, &w, &h, &n, 3);
+
+    glGenTextures(1, &skybox.texture);
+    glBindTexture(GL_TEXTURE_2D, skybox.texture);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+    stbi_image_free(image);
+
+    return skybox;
 }
 
 }

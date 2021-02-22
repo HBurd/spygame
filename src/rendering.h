@@ -30,12 +30,28 @@ struct LightSource
     void prepare_draw();
 };
 
+struct RenderObject
+{
+    GLuint vbo;
+    GLuint vao;
+    GLuint texture;
+    GLuint num_vertices;
+
+    bool lit = true;
+    bool textured = false;
+};
 
 void init_rendering(SDL_Window* window);
+
 void prepare_final_draw(math::Mat4 camera_matrix, LightSource light);
 void prepare_debug_draw(math::Mat4 camera_matrix);
+
 void draw_box(Transform3d box);
 void debug_draw_rectangle(Transform2d rect, float r, float g, float b);
+void draw_skybox(RenderObject skybox, math::Vec3 camera_pos);
+
+RenderObject create_skybox(const char* filename);
+
 int get_screen_width();
 int get_screen_height();
 

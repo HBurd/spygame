@@ -74,6 +74,7 @@ CameraView camera;
 CameraView light;
 
 LightSource light_source;
+RenderObject skybox;
 
 Transform2d player;
 
@@ -86,6 +87,8 @@ void init_game()
     light_source.init(1024);
     all_walls.push(Transform2d({2.0f, 0.0f}, {0.5f, 5.0f}, 0.1f));
     all_walls.push(Transform2d({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
+
+    skybox = render::create_skybox("cubemap.png");
 }
 
 Vec2 generic_support(Array<Vec2> points, Vec2 d)
@@ -439,6 +442,7 @@ void update_game(float dt)
 
 static void draw_scene()
 {
+    draw_skybox(skybox, camera.compute_position());
     for (auto wall : all_walls)
     {
         Transform3d box_transform(Vec3(wall.pos.x, wall.pos.y, 0.5f), Vec3(wall.scale.x, wall.scale.y, 1.0f), wall.rotation);
