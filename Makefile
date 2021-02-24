@@ -12,7 +12,7 @@ CSRC = $(GLEW_PATH)/src/glew.c $(FAST_OBJ_PATH)/fast_obj.c $(STB_IMAGE_PATH)/stb
 
 OBJECTS = $(CPPSRC:.cpp=.o) $(CSRC:.c=.o)
 
-CXXFLAGS = -MMD -g -Iinclude -I$(IMGUI_PATH) -Iinclude/SDL2 -I$(SRC_PATH) -I$(FAST_OBJ_PATH) -I$(STB_IMAGE_PATH) -Wall -Wextra
+CXXFLAGS = -MMD -g -Iinclude -I$(IMGUI_PATH) -Iinclude/SDL2 -I$(SRC_PATH) -I$(FAST_OBJ_PATH) -I$(STB_IMAGE_PATH) -I$(GLEW_PATH)/include -Wall -Wextra
 CFLAGS = $(CXXFLAGS)
 CPPFLAGS = -DGLEW_STATIC -DGLEW_NO_GLU -DIMGUI_IMPL_OPENGL_LOADER_GLEW
 
