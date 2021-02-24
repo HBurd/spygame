@@ -12,11 +12,22 @@
 #include <cstdio> // for shader loading
 #include <cstring> // for memcpy
 
+#define MAX_TEXTURES 1024
+
 using math::Vec2;
 using math::Vec3;
 using math::Mat2;
 using math::Mat3;
 using math::Mat4;
+
+struct Texture
+{
+    // Should be free'd
+    const char* path;
+    GLuint id;
+};
+
+MAKE_ARRAY(textures, Texture, MAX_TEXTURES);
 
 // Shaders
 GLuint light_map_shader;
@@ -165,6 +176,48 @@ static const Array<Vertex> generate_cube_mesh()
     }
 
     return Array<Vertex>(&cube_mesh);
+}
+
+// This won't load a texture if it has already been loaded.
+// Returns the index of the texture in textures
+static uint load_texture(const char* path)
+{
+    for (uint i = 0; i < textures.size; ++i)
+    {
+        if (strcmp(path, textures[i].path) == 0)
+        {
+            return i;
+        }
+    }
+
+    size_t path_len = strlen(path) + 1;
+
+    char* new_path = (char*) malloc(path_len);
+    memcpy(new_path, path, path_len);
+
+    Texture new_texture;
+    new_texture.path = new_path;
+
+    // Generate the texture and load the image into it
+    int w, h, n;
+    u8* image = stbi_load(path, &w, &h, &n, 3);
+
+    glGenTextures(1, &new_texture.id);
+    glBindTexture(GL_TEXTURE_2D, new_texture.id);
+
+    // TODO: can these be read from mtl?
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+    stbi_image_free(image);
+
+    uint texture_id = textures.size;
+    textures.push(new_texture);
+    return texture_id;
 }
 
 static render::RenderObject create_render_object(Array<Vertex> vertices)
@@ -341,7 +394,7 @@ void draw_skybox(RenderObject skybox, Vec3 camera_pos)
     if (skybox.textured)
     {
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, skybox.texture);
+        glBindTexture(GL_TEXTURE_2D, textures[skybox.texture_id].id);
     }
 
     glDepthMask(GL_FALSE);
@@ -388,7 +441,7 @@ void draw_object(Transform3d transform, RenderObject obj)
     if (obj.textured)
     {
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, obj.texture);
+        glBindTexture(GL_TEXTURE_2D, textures[obj.texture_id].id);
     }
 
     glDrawArrays(GL_TRIANGLES, 0, obj.num_vertices);
@@ -486,9 +539,20 @@ RenderObject load_mesh(const char* filename)
         }
     }
 
-    fast_obj_destroy(mesh);
-
     RenderObject result = create_render_object(vertices);
+
+    if (mesh->material_count > 0)
+    {
+        // TODO: we are just finding the first texture associated with the material,
+        // but that might not be correct.
+        if (mesh->materials[0].map_Kd.path)
+        {
+            result.texture_id = load_texture(mesh->materials[0].map_Kd.path);
+            result.textured = true;
+        }
+    }
+
+    fast_obj_destroy(mesh);
 
     delete[] vertex_data;
 
@@ -503,20 +567,7 @@ RenderObject create_skybox(const char* filename)
     skybox.textured = true;
     skybox.lit = false;
 
-    int w, h, n;
-    u8* image = stbi_load(filename, &w, &h, &n, 3);
-
-    glGenTextures(1, &skybox.texture);
-    glBindTexture(GL_TEXTURE_2D, skybox.texture);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-
-    stbi_image_free(image);
+    skybox.texture_id = load_texture(filename);
 
     return skybox;
 }

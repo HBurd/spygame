@@ -34,7 +34,6 @@ struct RenderObject
 {
     GLuint vbo;
     GLuint vao;
-    GLuint texture;
     GLuint num_vertices;
 
     float diffuse_ratio = 1.0f;
@@ -42,6 +41,8 @@ struct RenderObject
 
     bool lit = true;
     bool textured = false;
+
+    uint texture_id;
 };
 
 void init_rendering(SDL_Window* window);
