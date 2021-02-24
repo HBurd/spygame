@@ -35,10 +35,31 @@ void main()
 
         float specular_ratio = 1.0f - diffuse_ratio;
 
-        float diffuse = intensity * diffuse_ratio * dot(fs_in.world_normal, -light_dir);
-        float specular = intensity * specular_ratio * pow(dot(-camera_dir, light_dir - 2.0f * fs_in.world_normal * dot(fs_in.world_normal, light_dir)), 20.0f);
+        float diffuse = dot(fs_in.world_normal, -light_dir);
 
-        float brightness = max(diffuse, 0.0f) + max(specular, 0.0f);
+        vec3 reflected_ray = light_dir - 2.0f * fs_in.world_normal * dot(fs_in.world_normal, light_dir);
+
+        float specular_dot = dot(-camera_dir, reflected_ray);
+        float specular;
+
+        // The following is an approximation of specular = pow(max(specular_dot, 0.0f), shininess)
+        if (shininess >= 4.0f)
+        {
+            specular = max(0.0f, 1.0f - (shininess / 4.0f) * (1.0f - specular_dot));
+            specular = specular * specular * specular * specular;
+        }
+        else if (shininess >= 2.0f)
+        {
+
+            specular = max(0.0f, 1.0f - (shininess / 2.0f) * (1.0f - specular_dot));
+            specular = specular * specular;
+        }
+        else
+        {
+            specular = max(0.0f, 1.0f - shininess * (1.0f - specular_dot));
+        }
+
+        float brightness = intensity * (diffuse_ratio * max(diffuse, 0.0f) + specular_ratio * max(specular, 0.0f));
 
         vec3 light_coord = (fs_in.light_coord.xyz / fs_in.light_coord.w) * 0.5f + 0.5f;
         light_coord.z -= 0.0005f;

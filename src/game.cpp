@@ -93,7 +93,6 @@ void init_game()
     skybox = render::create_skybox("cubemap.png");
     test_object = render::load_mesh("bettermug.obj");
     test_object.diffuse_ratio = 0.3f;
-    test_object.shininess = 8.0f;
 }
 
 Vec2 generic_support(Array<Vec2> points, Vec2 d)
@@ -380,6 +379,9 @@ void update_game(float dt)
             }
         }
     }
+
+    ImGui::SliderFloat("Diffuse", &test_object.diffuse_ratio, 0.0f, 1.0f);
+    ImGui::SliderFloat("Shininess", &test_object.shininess, 1.0f, 20.0f);
 
     if (get_key_state(SDL_SCANCODE_LEFT).held)
     {
