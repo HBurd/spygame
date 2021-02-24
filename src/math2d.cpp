@@ -12,6 +12,10 @@ Vec2::Vec2(float x_, float y_)
     : x(x_), y(y_)
 {}
 
+Vec2::Vec2(float* data)
+    : x(data[0]), y(data[1])
+{}
+
 float Vec2::square_magnitude() const
 {
     return x * x + y * y;

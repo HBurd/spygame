@@ -76,6 +76,8 @@ CameraView light;
 LightSource light_source;
 RenderObject skybox;
 
+RenderObject test_object;
+
 Transform2d player;
 
 Vec2 player_velocity;
@@ -89,6 +91,7 @@ void init_game()
     all_walls.push(Transform2d({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
 
     skybox = render::create_skybox("cubemap.png");
+    test_object = render::load_mesh("bettermug.obj");
 }
 
 Vec2 generic_support(Array<Vec2> points, Vec2 d)
@@ -448,6 +451,9 @@ static void draw_scene()
         Transform3d box_transform(Vec3(wall.pos.x, wall.pos.y, 0.5f), Vec3(wall.scale.x, wall.scale.y, 1.0f), wall.rotation);
         draw_box(box_transform);
     }
+
+    Transform3d player_transform(Vec3(player.pos.x, player.pos.y, 0.0f), Vec3(1.0f, 1.0f, 1.0f), 0.0f);
+    draw_object(player_transform, test_object);
 
     // Draw ground
     Transform3d ground_transform(Vec3(0.0f, 0.0f, -0.1f), Vec3(20.0f, 20.0f, 0.2f), 0.0f);

@@ -13,6 +13,9 @@ struct Vec3
     Vec3() = default;
     Vec3(float x_, float y_, float z_);
 
+    // Takes an array of three floats
+    Vec3(float* data);
+
     float* array();
     const float* array() const;
 

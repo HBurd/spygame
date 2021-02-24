@@ -17,6 +17,11 @@ Vec4::Vec4(const Vec3& vec3)
     : data{vec3.x, vec3.y, vec3.z, 1.0f}
 {}
 
+// Takes an array of four floats
+Vec4::Vec4(float* data_)
+    : data{data_[0], data_[1], data_[2], data_[3]}
+{}
+
 float& Vec4::operator[](size_t index)
 {
     return data[index];

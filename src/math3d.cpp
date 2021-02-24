@@ -13,6 +13,11 @@ Vec3::Vec3(float x_, float y_, float z_)
     : x(x_), y(y_), z(z_)
 {}
 
+// Takes an array of three floats
+Vec3::Vec3(float* data)
+    : x(data[0]), y(data[1]), z(data[2])
+{}
+
 float Vec3::square_magnitude() const
 {
     return x*x + y*y + z*z;

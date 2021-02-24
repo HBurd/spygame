@@ -47,9 +47,11 @@ void prepare_final_draw(math::Mat4 camera_matrix, LightSource light);
 void prepare_debug_draw(math::Mat4 camera_matrix);
 
 void draw_box(Transform3d box);
+void draw_object(Transform3d transform, RenderObject obj);
 void debug_draw_rectangle(Transform2d rect, float r, float g, float b);
 void draw_skybox(RenderObject skybox, math::Vec3 camera_pos);
 
+RenderObject load_mesh(const char* filename);
 RenderObject create_skybox(const char* filename);
 
 int get_screen_width();

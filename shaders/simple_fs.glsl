@@ -28,7 +28,14 @@ void main()
     float lighting_factor = 1.0f;
     if (lit)
     {
-        lighting_factor = texture(light_depth, light_coord) * brightness;
+        if (light_coord.x >= 0.0f && light_coord.x <= 1.0f && light_coord.y >= 0.0f && light_coord.y <= 1.0f)
+        {
+            lighting_factor = texture(light_depth, light_coord) * brightness;
+        }
+        else
+        {
+            lighting_factor = brightness;
+        }
     }
 
     vec3 color = vec3(1.0f, 1.0f, 1.0f);

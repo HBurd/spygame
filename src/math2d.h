@@ -13,6 +13,9 @@ struct Vec2
     Vec2() = default;
     Vec2(float x, float y);
 
+    // Takes an array of two floats
+    Vec2(float* data);
+
     float* array();
     const float* array() const;
 

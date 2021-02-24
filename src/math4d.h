@@ -13,6 +13,9 @@ struct Vec4
     Vec4() = default;
     Vec4(float d0, float d1, float d2, float d3);
 
+    // Takes an array of four floats
+    Vec4(float* data_);
+
     // Sets the fourth coordinate to 1.0;
     Vec4(const Vec3& vec3);
 
