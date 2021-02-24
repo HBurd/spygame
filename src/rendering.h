@@ -37,6 +37,9 @@ struct RenderObject
     GLuint texture;
     GLuint num_vertices;
 
+    float diffuse_ratio = 1.0f;
+    float shininess = 1.0f;
+
     bool lit = true;
     bool textured = false;
 };

@@ -366,6 +366,12 @@ void draw_object(Transform3d transform, RenderObject obj)
     loc = glGetUniformLocation(selected_shader, "position");
     glUniform3fv(loc, 1, transform.pos.array());
 
+    loc = glGetUniformLocation(selected_shader, "diffuse_ratio");
+    glUniform1f(loc, obj.diffuse_ratio);
+
+    loc = glGetUniformLocation(selected_shader, "shininess");
+    glUniform1f(loc, obj.shininess);
+
     loc = glGetUniformLocation(selected_shader, "lit");
     glUniform1i(loc, obj.lit);
 

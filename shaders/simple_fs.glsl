@@ -15,6 +15,9 @@ uniform sampler2D color_texture;
 
 uniform vec3 light_pos;
 
+uniform float diffuse_ratio;
+uniform float shininess;
+
 uniform vec3 camera_dir;
 
 uniform bool lit;
@@ -22,22 +25,21 @@ uniform bool textured;
 
 void main()
 {
-    vec3 light_vector = fs_in.world_pos - light_pos;
-
-    float intensity = 10.0f / dot(light_vector, light_vector);
-    vec3 light_dir = normalize(light_vector);
-
-    const float diffuse_ratio = 0.1f;
-    const float specular_ratio = 1.0f - diffuse_ratio;
-
-    float diffuse = intensity * diffuse_ratio * dot(fs_in.world_normal, -light_dir);
-    float specular = intensity * specular_ratio * pow(dot(-camera_dir, light_dir - 2.0f * fs_in.world_normal * dot(fs_in.world_normal, light_dir)), 20.0f);
-
-    float brightness = max(diffuse, 0.0f) + max(specular, 0.0f);
-
     float lighting_factor = 1.0f;
     if (lit)
     {
+        vec3 light_vector = fs_in.world_pos - light_pos;
+
+        float intensity = 10.0f / dot(light_vector, light_vector);
+        vec3 light_dir = normalize(light_vector);
+
+        float specular_ratio = 1.0f - diffuse_ratio;
+
+        float diffuse = intensity * diffuse_ratio * dot(fs_in.world_normal, -light_dir);
+        float specular = intensity * specular_ratio * pow(dot(-camera_dir, light_dir - 2.0f * fs_in.world_normal * dot(fs_in.world_normal, light_dir)), 20.0f);
+
+        float brightness = max(diffuse, 0.0f) + max(specular, 0.0f);
+
         vec3 light_coord = (fs_in.light_coord.xyz / fs_in.light_coord.w) * 0.5f + 0.5f;
         light_coord.z -= 0.0005f;
 

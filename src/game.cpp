@@ -92,6 +92,8 @@ void init_game()
 
     skybox = render::create_skybox("cubemap.png");
     test_object = render::load_mesh("bettermug.obj");
+    test_object.diffuse_ratio = 0.3f;
+    test_object.shininess = 8.0f;
 }
 
 Vec2 generic_support(Array<Vec2> points, Vec2 d)
