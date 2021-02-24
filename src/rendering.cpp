@@ -281,7 +281,7 @@ void init_rendering(SDL_Window* window)
     light_map_shader = load_shader("shaders/shadow_vs.glsl", "shaders/shadow_fs.glsl");
 }
 
-void prepare_final_draw(Mat4 camera_matrix, LightSource light)
+void prepare_final_draw(Mat4 camera_matrix, Vec3 camera_dir, LightSource light)
 {
     glViewport(0, 0, screen_width, screen_height);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -294,6 +294,9 @@ void prepare_final_draw(Mat4 camera_matrix, LightSource light)
 
     GLint loc = glGetUniformLocation(selected_shader, "camera");
     glUniformMatrix4fv(loc, 1, GL_TRUE, camera_matrix.data);
+
+    loc = glGetUniformLocation(selected_shader, "camera_dir");
+    glUniform3fv(loc, 1, camera_dir.array());
 
     loc = glGetUniformLocation(selected_shader, "light_pos");
     glUniform3fv(loc, 1, light.pos.array());

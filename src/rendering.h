@@ -43,7 +43,7 @@ struct RenderObject
 
 void init_rendering(SDL_Window* window);
 
-void prepare_final_draw(math::Mat4 camera_matrix, LightSource light);
+void prepare_final_draw(math::Mat4 camera_matrix, math::Vec3 camera_dir, LightSource light);
 void prepare_debug_draw(math::Mat4 camera_matrix);
 
 void draw_box(Transform3d box);

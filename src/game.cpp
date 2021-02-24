@@ -467,7 +467,7 @@ void render_game()
     light_source.prepare_draw();
     draw_scene();
 
-    prepare_final_draw(camera.compute_matrix(get_aspect_ratio()), light_source);
+    prepare_final_draw(camera.compute_matrix(get_aspect_ratio()), -camera.compute_rotation().column(2), light_source);
     draw_scene();
 
     if (editor_enabled)
