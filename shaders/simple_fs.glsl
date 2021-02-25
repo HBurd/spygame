@@ -14,6 +14,8 @@ uniform sampler2DShadow light_depth;
 uniform sampler2D color_texture;
 
 uniform vec3 light_pos;
+uniform bool is_directional;
+uniform vec3 light_direction;
 
 uniform float diffuse_ratio;
 uniform float shininess;
@@ -28,9 +30,17 @@ void main()
     float lighting_factor = 1.0f;
     if (lit)
     {
-        vec3 light_vector = fs_in.world_pos - light_pos;
+        vec3 light_vector;
+        if (is_directional)
+        {
+            light_vector = light_direction;
+        }
+        else
+        {
+            light_vector = fs_in.world_pos - light_pos;
+        }
 
-        float intensity = 10.0f / dot(light_vector, light_vector);
+        float intensity = 1.0f / dot(light_vector, light_vector);
         vec3 light_dir = normalize(light_vector);
 
         float specular_ratio = 1.0f - diffuse_ratio;

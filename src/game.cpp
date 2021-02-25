@@ -25,7 +25,7 @@ struct CameraView
     // Pixel coordinates are measured in pixels from the top-left of the window
     Vec3 pixel_direction(int x, int y, int width, int height) const;
     Vec3 compute_position() const;
-    Mat3 compute_rotation() const;
+    Quaternion compute_orientation() const;
     Mat4 compute_matrix(float aspect_ratio) const;
 };
 
@@ -47,26 +47,29 @@ Vec3 CameraView::pixel_direction(int x, int y, int width, int height) const
     dir.z = -cosf(0.5f * fov);
 
     // Apply camera rotation
-    dir = compute_rotation() * dir;
+    dir = compute_orientation().apply_rotation(dir);
 
     return dir;
 }
 
 Vec3 CameraView::compute_position() const
 {
-    return target + compute_rotation() * Vec3(0.0f, 0.0f, distance);
+    return target + compute_orientation().apply_rotation(Vec3(0.0f, 0.0f, distance));
 }
 
-Mat3 CameraView::compute_rotation() const
+Quaternion CameraView::compute_orientation() const
 {
-    return Mat3::RotateZ(yaw) * Mat3::RotateX(pitch);
+    return Quaternion::RotateZ(yaw) * Quaternion::RotateX(pitch);
 }
 
 Mat4 CameraView::compute_matrix(float aspect_ratio) const
 {
+    Mat3 rotation_mat;
+    compute_orientation().inverse().to_matrix(rotation_mat.data);
+
     return Mat4::Perspective(near, far, fov, aspect_ratio)
            * Mat4::Translate(Vec3(0.0f, 0.0f, -distance))
-           * Mat4(compute_rotation().transpose())
+           * Mat4(rotation_mat)
            * Mat4::Translate(-target);
 }
 
@@ -86,7 +89,8 @@ MAKE_ARRAY(all_walls, Transform2d, 1024);
 
 void init_game()
 {
-    light_source.init(1024);
+    light_source = make_light_source(1024, Mat4::Orthographic(0.1f, 20.0f, 10.0f, 10.0f), true);
+
     all_walls.push(Transform2d({2.0f, 0.0f}, {0.5f, 5.0f}, 0.1f));
     all_walls.push(Transform2d({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
 
@@ -466,12 +470,12 @@ static void draw_scene()
 
 void render_game()
 {
-    light_source.matrix = light.compute_matrix(1.0f);
     light_source.pos = light.compute_position();
-    light_source.prepare_draw();
+    light_source.orientation = light.compute_orientation();
+    prepare_lightmap_draw(light_source);
     draw_scene();
 
-    prepare_final_draw(camera.compute_matrix(get_aspect_ratio()), -camera.compute_rotation().column(2), light_source);
+    prepare_final_draw(camera.compute_matrix(get_aspect_ratio()), camera.compute_orientation().apply_rotation(Vec3(0.0f, 0.0f, -1.0f)), light_source);
     draw_scene();
 
     if (editor_enabled)

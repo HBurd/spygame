@@ -18,16 +18,12 @@ struct LightSource
     GLuint fbo;
     GLuint texture;
     int side;
+    bool is_directional;
 
     math::Mat4 matrix;
+
     math::Vec3 pos;
-
-    bool initialized = false;
-
-    // Must be called after init_rendering().
-    // RAII isn't used because it wouldn't allow statically allocating light sources.
-    void init(int side_);
-    void prepare_draw();
+    math::Quaternion orientation;
 };
 
 struct RenderObject
@@ -47,7 +43,10 @@ struct RenderObject
 
 void init_rendering(SDL_Window* window);
 
+LightSource make_light_source(int side, math::Mat4 matrix, bool is_directional);
+
 void prepare_final_draw(math::Mat4 camera_matrix, math::Vec3 camera_dir, LightSource light);
+void prepare_lightmap_draw(LightSource light);
 void prepare_debug_draw(math::Mat4 camera_matrix);
 
 void draw_box(Transform3d box);
