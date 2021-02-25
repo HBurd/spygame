@@ -19,6 +19,7 @@ struct LightSource
     GLuint texture;
     int side;
     bool is_directional;
+    float intensity = 1.0f;
 
     math::Mat4 matrix;
 

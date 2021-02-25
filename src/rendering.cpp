@@ -373,6 +373,9 @@ void prepare_final_draw(Mat4 camera_matrix, Vec3 camera_dir, LightSource light)
     loc = glGetUniformLocation(selected_shader, "light_direction");
     glUniform3fv(loc, 1, light.orientation.apply_rotation(Vec3(0.0f, 0.0f, -1.0f)).array());
 
+    loc = glGetUniformLocation(selected_shader, "intensity");
+    glUniform1f(loc, light.intensity);
+
     loc = glGetUniformLocation(selected_shader, "is_directional");
     glUniform1i(loc, light.is_directional);
 

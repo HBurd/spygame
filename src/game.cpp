@@ -351,6 +351,7 @@ void update_game(float dt)
                 ImGui::InputFloat("Near", &light.near);
                 ImGui::InputFloat("Far", &light.far);
                 ImGui::SliderFloat("FOV", &light.fov, 0.0f, 3.0f);
+                ImGui::SliderFloat("Intensity", &light_source.intensity, 0.0f, 10.0f);
                 ImGui::Image((void*)(intptr_t)light_source.texture, ImVec2(200.0f, 200.0f));
             }
             ImGui::End();

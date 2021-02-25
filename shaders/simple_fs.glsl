@@ -16,6 +16,7 @@ uniform sampler2D color_texture;
 uniform vec3 light_pos;
 uniform bool is_directional;
 uniform vec3 light_direction;
+uniform float intensity;
 
 uniform float diffuse_ratio;
 uniform float shininess;
@@ -40,7 +41,7 @@ void main()
             light_vector = fs_in.world_pos - light_pos;
         }
 
-        float intensity = 1.0f / dot(light_vector, light_vector);
+        float light_per_area = intensity / dot(light_vector, light_vector);
         vec3 light_dir = normalize(light_vector);
 
         float specular_ratio = 1.0f - diffuse_ratio;
@@ -69,7 +70,7 @@ void main()
             specular = max(0.0f, 1.0f - shininess * (1.0f - specular_dot));
         }
 
-        float brightness = intensity * (diffuse_ratio * max(diffuse, 0.0f) + specular_ratio * max(specular, 0.0f));
+        float brightness = light_per_area * (diffuse_ratio * max(diffuse, 0.0f) + specular_ratio * max(specular, 0.0f));
 
         vec3 light_coord = (fs_in.light_coord.xyz / fs_in.light_coord.w) * 0.5f + 0.5f;
         light_coord.z -= 0.0005f;
