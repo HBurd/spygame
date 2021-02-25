@@ -63,6 +63,30 @@ struct Mat3
     Mat3& operator-=(const Mat3& rhs);
 };
 
+struct Quaternion
+{
+    float w = 1.0f;
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+
+    Quaternion() = default;
+    Quaternion(float w_, float x_, float y_, float z_);
+
+    Quaternion normalize() const;
+
+    Quaternion inverse() const;
+
+    // TODO: use the Mat4 type
+    void to_matrix(float* matrix);
+
+    Vec3 apply_rotation(const Vec3& x);
+
+    static Quaternion RotateX(float angle);
+    static Quaternion RotateY(float angle);
+    static Quaternion RotateZ(float angle);
+};
+
 // Vector operations
 float dot(const Vec3& lhs, const Vec3& rhs);
 
@@ -81,5 +105,8 @@ Mat3 operator*(const Mat3& lhs, float rhs);
 Mat3 operator+(const Mat3& lhs, const Mat3& rhs);
 Mat3 operator-(const Mat3& lhs, const Mat3& rhs);
 Mat3 operator-(const Mat3& operand);
+
+// Quaternion operations
+Quaternion operator*(const Quaternion& lhs, const Quaternion& rhs);
 
 }

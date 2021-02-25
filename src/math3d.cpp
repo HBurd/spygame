@@ -307,4 +307,115 @@ Mat3 operator-(const Mat3& operand)
     return result;
 }
 
+Quaternion::Quaternion(float w_, float x_, float y_, float z_)
+    : w(w_), x(x_), y(y_), z(z_)
+{}
+
+Quaternion Quaternion::normalize() const
+{
+    Quaternion result;
+
+    float magnitude = sqrtf(w*w + x*x + y*y + z*z);
+    if (magnitude != 0.0f)
+    {
+        result.w = w / magnitude;
+        result.x = x / magnitude;
+        result.y = y / magnitude;
+        result.z = z / magnitude;
+    }
+    else
+    {
+        result.w = 1.0f;
+        result.x = 0.0f;
+        result.y = 0.0f;
+        result.z = 0.0f;
+    }
+
+    return result;
+}
+
+Quaternion operator*(const Quaternion& lhs, const Quaternion& rhs)
+{
+    Quaternion result;
+    result.w = lhs.w*rhs.w - lhs.x*rhs.x - lhs.y*rhs.y - lhs.z*rhs.z;
+    result.x = lhs.w*rhs.x + lhs.x*rhs.w + lhs.y*rhs.z - lhs.z*rhs.y;
+    result.y = lhs.w*rhs.y - lhs.x*rhs.z + lhs.y*rhs.w + lhs.z*rhs.x;
+    result.z = lhs.w*rhs.z + lhs.x*rhs.y - lhs.y*rhs.x + lhs.z*rhs.w;
+
+    return result;
+}
+
+Quaternion Quaternion::inverse() const
+{
+    Quaternion result;
+    result.w = w;
+    result.x = -x;
+    result.y = -y;
+    result.z = -z;
+
+    return result;
+}
+
+void Quaternion::to_matrix(float* matrix)
+{
+    // assuming magnitude 1
+    matrix[0] = 1 - 2 * (y*y + z*z);
+    matrix[1] = 2 * (x*y - z*w);
+    matrix[2] = 2 * (x*z + y*w);
+    matrix[3] = 2 * (x*y + z*w);
+    matrix[4] = 1 - 2 * (x*x + z*z);
+    matrix[5] = 2 * (y*z - x*w);
+    matrix[6] = 2 * (x*z - y*w);
+    matrix[7] = 2 * (y*z + x*w);
+    matrix[8] = 1 - 2 * (x*x + y*y);
+}
+
+Vec3 Quaternion::apply_rotation(const Vec3& x)
+{
+    Quaternion x_quat;
+    x_quat.w = 0.0f;
+    x_quat.x = x.x;
+    x_quat.y = x.y;
+    x_quat.z = x.z;
+
+    Quaternion result = (*this) * x_quat * (*this).inverse();
+    return Vec3(result.x, result.y, result.z);
+}
+
+Quaternion Quaternion::RotateX(float angle)
+{
+    float cosine = cosf(0.5f * angle);
+    float sine   = sinf(0.5f * angle);
+
+    Quaternion result;
+    result.w = cosine;
+    result.x = sine;
+
+    return result;
+}
+
+Quaternion Quaternion::RotateY(float angle)
+{
+    float cosine = cosf(0.5f * angle);
+    float sine   = sinf(0.5f * angle);
+
+    Quaternion result;
+    result.w = cosine;
+    result.y = sine;
+
+    return result;
+}
+
+Quaternion Quaternion::RotateZ(float angle)
+{
+    float cosine = cosf(0.5f * angle);
+    float sine   = sinf(0.5f * angle);
+
+    Quaternion result;
+    result.w = cosine;
+    result.z = sine;
+
+    return result;
+}
+
 }
