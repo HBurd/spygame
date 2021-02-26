@@ -28,10 +28,12 @@ struct Camera
     float get_fov() const;
 
     // x and y are in pixels from the top left, width and height are width and height of the camera image
-    math::Vec3 pixel_direction(int x, int y, int width, int height) const;
+    void pixel_ray(int x, int y, int width, int height, math::Vec3* ray_pos, math::Vec3* ray_dir) const;
 
     // Returns camera_matrix * view_matrix
     math::Mat4 compute_matrix(float aspect_ratio) const;
+
+    void draw_gui();
 };
 
 struct LightSource
@@ -43,6 +45,8 @@ struct LightSource
     float intensity = 1.0f;
 
     Camera camera;
+
+    void draw_gui();
 };
 
 struct RenderObject

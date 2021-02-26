@@ -11,6 +11,7 @@
 
 #include <cstdio> // for shader loading
 #include <cstring> // for memcpy
+#include "imgui.h"
 
 #define MAX_TEXTURES 1024
 
@@ -277,24 +278,54 @@ Mat4 Camera::compute_matrix(float aspect_ratio) const
     }
 }
 
-Vec3 Camera::pixel_direction(int x, int y, int width, int height) const
+void Camera::pixel_ray(int x, int y, int width, int height, Vec3* ray_pos, Vec3* ray_dir) const
 {
     // The +0.5f shifts the coordinate to the centre of the pixel
-    Vec3 dir = Vec3(x, y, 0.0f) - 0.5f * Vec3(width, height, 0.0f) + Vec3(0.5f, 0.5f, 0.0f);
+    Vec3 near_plane = Vec3(x, y, 0.0f) - 0.5f * Vec3(width, height, 0.0f) + Vec3(0.5f, 0.5f, 0.0f);
 
     // Flip the y axis to point up
-    dir.y = -dir.y;
+    near_plane.y = -near_plane.y;
 
     // Scale to the size of the near plane
-    dir *= near_width / width;
+    near_plane *= near_width / width;
 
-    // Move onto this rectangle
-    dir.z = -near;
+    // Move the point onto the near_plane
+    near_plane.z = -near;
 
     // Apply camera_view rotation
-    dir = orientation.apply_rotation(dir);
+    near_plane = orientation.apply_rotation(near_plane);
 
-    return dir;
+    if (is_ortho)
+    {
+        *ray_dir = orientation.apply_rotation(Vec3(0.0f, 0.0f, -1.0f));
+        *ray_pos = pos + near_plane;
+    }
+    else
+    {
+        *ray_dir = near_plane;
+        *ray_pos = pos;
+    }
+}
+
+void Camera::draw_gui()
+{
+    ImGui::InputFloat3("Position", pos.array());
+
+    ImGui::InputFloat("Near", &near);
+    ImGui::InputFloat("Far", &far);
+
+    ImGui::Checkbox("Orthographic?", &is_ortho);
+
+    if (is_ortho)
+    {
+        ImGui::InputFloat("Near plane width", &near_width);
+    }
+    else
+    {
+        float fov = get_fov();
+        ImGui::SliderFloat("FOV", &fov, 0.0f, 3.0f);
+        set_fov(fov);
+    }
 }
 
 LightSource make_light_source(int side)
@@ -329,6 +360,15 @@ LightSource make_light_source(int side)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     return light;
+}
+
+void LightSource::draw_gui()
+{
+    ImGui::InputFloat("Aspect ratio", &aspect_ratio);
+    ImGui::InputFloat("Intensity", &intensity);
+    camera.draw_gui();
+
+    ImGui::Image((void*)(intptr_t)texture, ImVec2(200.0f, 200.0f));
 }
 
 void prepare_lightmap_draw(LightSource light)

@@ -35,7 +35,6 @@ Quaternion CameraView::compute_orientation() const
 
 Camera camera;
 CameraView camera_view;
-CameraView light;
 
 LightSource light_source;
 RenderObject skybox;
@@ -51,9 +50,12 @@ MAKE_ARRAY(all_walls, Transform2d, 1024);
 void init_game()
 {
     camera.set_fov(0.5f * M_PI);
+
     light_source = make_light_source(1024);
     light_source.camera.is_ortho = true;
     light_source.camera.near_width = 20.0f;
+    light_source.camera.pos = Vec3(0.0f, 0.0f, 10.0f);
+    light_source.camera.orientation = Quaternion::RotateZ(1.0f) * Quaternion::RotateX(-0.25f * M_PI);
 
     all_walls.push(Transform2d({2.0f, 0.0f}, {0.5f, 5.0f}, 0.1f));
     all_walls.push(Transform2d({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
@@ -226,6 +228,7 @@ Vec2 selection_offset;
 
 bool show_imgui_demo = false;
 bool show_light_window = false;
+bool show_camera_window = false;
 
 void update_game(float dt)
 {
@@ -250,7 +253,8 @@ void update_game(float dt)
             if (ImGui::BeginMenu("View"))
             {
                 ImGui::MenuItem("ImGui demo window", nullptr, &show_imgui_demo);
-                ImGui::MenuItem("Light source", nullptr, &show_light_window);
+                ImGui::MenuItem("Edit light", nullptr, &show_light_window);
+                ImGui::MenuItem("Edit camera", nullptr, &show_camera_window);
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
@@ -259,15 +263,16 @@ void update_game(float dt)
         // Handle object selection with mouse
         {
             MouseState mouse = get_mouse_state();
-            Vec3 mouse_dir = camera.pixel_direction(mouse.x, mouse.y, get_screen_width(), get_screen_height());
-            Vec2 mouse_pos = z_intersect(camera_view.compute_position(), mouse_dir, 0.0f);
+            Vec3 mouse_pos, mouse_dir;
+            camera.pixel_ray(mouse.x, mouse.y, get_screen_width(), get_screen_height(), &mouse_pos, &mouse_dir);
+            Vec2 mouse_in_plane = z_intersect(mouse_pos, mouse_dir, 0.0f);
 
             if (mouse.left.down)
             {
                 selected_object = nullptr;
                 for (auto& object : all_walls)
                 {
-                    if (rectangle_contains_point(object, mouse_pos))
+                    if (rectangle_contains_point(object, mouse_in_plane))
                     {
                         selected_object = &object;
                     }
@@ -275,7 +280,7 @@ void update_game(float dt)
 
                 if (selected_object)
                 {
-                    selection_offset = selected_object->pos - mouse_pos;
+                    selection_offset = selected_object->pos - mouse_in_plane;
                 }
             }
 
@@ -283,7 +288,7 @@ void update_game(float dt)
             {
                 float rotation_change = 0.05f * mouse.wheel;
                 selection_offset = math::Mat2::Rotation(rotation_change) * selection_offset;
-                selected_object->pos = mouse_pos + selection_offset;
+                selected_object->pos = mouse_in_plane + selection_offset;
                 selected_object->rotation += rotation_change;
             }
         }
@@ -306,29 +311,18 @@ void update_game(float dt)
 
         if (show_light_window)
         {
-            if (ImGui::Begin("Light Source", &show_light_window))
+            if (ImGui::Begin("Edit Light", &show_light_window))
             {
-                ImGui::InputFloat3("target", light.target.array());
-                ImGui::SliderFloat("Pitch", &light.pitch, 0.0f, M_PI);
-                ImGui::SliderFloat("Yaw", &light.yaw, 0.0f, 2.0f * M_PI);
-                ImGui::InputFloat("Distance", &light.distance);
+                light_source.draw_gui();
+            }
+            ImGui::End();
+        }
 
-                ImGui::InputFloat("Near", &light_source.camera.near);
-                ImGui::InputFloat("Far", &light_source.camera.far);
-
-                if (light_source.camera.is_ortho)
-                {
-                    
-                }
-                else
-                {
-                    float fov = light_source.camera.get_fov();
-                    ImGui::SliderFloat("FOV", &fov, 0.0f, 3.0f);
-                    light_source.camera.set_fov(fov);
-                }
-
-                ImGui::SliderFloat("Intensity", &light_source.intensity, 0.0f, 10.0f);
-                ImGui::Image((void*)(intptr_t)light_source.texture, ImVec2(200.0f, 200.0f));
+        if (show_camera_window)
+        {
+            if (ImGui::Begin("Edit Camera", &show_camera_window))
+            {
+                camera.draw_gui();
             }
             ImGui::End();
         }
@@ -360,9 +354,6 @@ void update_game(float dt)
             }
         }
     }
-
-    ImGui::SliderFloat("Diffuse", &test_object.diffuse_ratio, 0.0f, 1.0f);
-    ImGui::SliderFloat("Shininess", &test_object.shininess, 1.0f, 20.0f);
 
     if (get_key_state(SDL_SCANCODE_LEFT).held)
     {
@@ -447,8 +438,6 @@ static void draw_scene()
 
 void render_game()
 {
-    light_source.camera.pos = light.compute_position();
-    light_source.camera.orientation = light.compute_orientation();
     prepare_lightmap_draw(light_source);
     draw_scene();
 
