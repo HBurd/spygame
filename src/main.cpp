@@ -3,6 +3,7 @@
 #include "util.h"
 #include "game.h"
 #include "rendering.h"
+#include "entity.h"
 
 #include "GL/glew.h"
 #include "imgui.h"
@@ -71,6 +72,7 @@ int main()
     }
 
     init_rendering(window);
+    init_entities();
     init_game();
 
     bool running = true;

@@ -4,6 +4,7 @@
 #include "rendering.h"
 #include "input.h"
 #include "shapes.h"
+#include "entity.h"
 
 #include "imgui.h"
 #include <cmath>
@@ -41,11 +42,9 @@ RenderObject skybox;
 
 RenderObject test_object;
 
-Transform2d player;
+EntityRef player;
 
 Vec2 player_velocity;
-
-MAKE_ARRAY(all_walls, Transform2d, 1024);
 
 void init_game()
 {
@@ -57,8 +56,10 @@ void init_game()
     light_source.camera.pos = Vec3(0.0f, 0.0f, 10.0f);
     light_source.camera.orientation = Quaternion::RotateZ(1.0f) * Quaternion::RotateX(-0.25f * M_PI);
 
-    all_walls.push(Transform2d({2.0f, 0.0f}, {0.5f, 5.0f}, 0.1f));
-    all_walls.push(Transform2d({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
+    create_entity(Transform2d({2.0f, 0.0f}, {0.5f, 5.0f}, 0.1f));
+    create_entity(Transform2d({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
+
+    player = create_entity(Transform2d());
 
     skybox = render::create_skybox("cubemap.png");
     test_object = render::load_mesh("bettermug.obj");
@@ -223,7 +224,7 @@ bool intersect(Transform2d r1, Transform2d r2, Vec2* penetration_vector)
 }
 
 bool editor_enabled = false;
-Transform2d* selected_object = nullptr;
+EntityRef selected_object;
 Vec2 selection_offset;
 
 bool show_imgui_demo = false;
@@ -246,7 +247,7 @@ void update_game(float dt)
                 if (ImGui::MenuItem("Wall"))
                 {
                     Transform2d new_wall;
-                    selected_object = all_walls.push(new_wall);
+                    selected_object = create_entity(new_wall);
                 }
                 ImGui::EndMenu();
             }
@@ -260,6 +261,8 @@ void update_game(float dt)
             ImGui::EndMainMenuBar();
         }
 
+        Entity* selected_entity = lookup_entity(selected_object);
+
         // Handle object selection with mouse
         {
             MouseState mouse = get_mouse_state();
@@ -269,37 +272,41 @@ void update_game(float dt)
 
             if (mouse.left.down)
             {
-                selected_object = nullptr;
-                for (auto& object : all_walls)
+                // Clear selection
+                selected_object = EntityRef();
+
+                // Check if user clicked an entity
+                for (auto& entity : entities)
                 {
-                    if (rectangle_contains_point(object, mouse_in_plane))
+                    if (rectangle_contains_point(entity.transform, mouse_in_plane))
                     {
-                        selected_object = &object;
+                        selected_object = entity.ref;
+                        selected_entity = lookup_entity(selected_object);
                     }
                 }
 
-                if (selected_object)
+                if (selected_entity)
                 {
-                    selection_offset = selected_object->pos - mouse_in_plane;
+                    selection_offset = selected_entity->transform.pos - mouse_in_plane;
                 }
             }
 
-            if (mouse.left.held && selected_object)
+            if (mouse.left.held && selected_entity)
             {
                 float rotation_change = 0.05f * mouse.wheel;
                 selection_offset = math::Mat2::Rotation(rotation_change) * selection_offset;
-                selected_object->pos = mouse_in_plane + selection_offset;
-                selected_object->rotation += rotation_change;
+                selected_entity->transform.pos = mouse_in_plane + selection_offset;
+                selected_entity->transform.rotation += rotation_change;
             }
         }
 
-        if (selected_object)
+        if (selected_entity)
         {
             if (ImGui::Begin("Selected Object"))
             {
-                ImGui::InputFloat2("Position", selected_object->pos.array());
-                ImGui::InputFloat2("Size", selected_object->scale.array());
-                ImGui::SliderFloat("Rotation", &selected_object->rotation, 0.0f, 2.0f * M_PI);
+                ImGui::InputFloat2("Position", selected_entity->transform.pos.array());
+                ImGui::InputFloat2("Size", selected_entity->transform.scale.array());
+                ImGui::SliderFloat("Rotation", &selected_entity->transform.rotation, 0.0f, 2.0f * M_PI);
             }
             ImGui::End();
         }
@@ -391,15 +398,23 @@ void update_game(float dt)
         player_velocity += Vec2(0.0f, -1.0f);
     }
 
-    player.pos += dt * player_velocity;
+    Entity* player_entity = lookup_entity(player);
+    assert(player_entity);
+
+    player_entity->transform.pos += dt * player_velocity;
 
     // Check for collisions
     uint num_collisions = 0;
     Vec2 penetration;
-    for (auto wall : all_walls)
+    for (auto& entity : entities)
     {
+        if (&entity == player_entity)
+        {
+            continue;
+        }
+
         Vec2 collision;
-        if (intersect(player, wall, &penetration))
+        if (intersect(player_entity->transform, entity.transform, &penetration))
         {
             num_collisions++;
         }
@@ -409,31 +424,24 @@ void update_game(float dt)
     if (num_collisions == 1)
     {
         // In this case we can just translate by the penetration vector
-        player.pos += 1.05f * penetration;
+        player_entity->transform.pos += 1.05f * penetration;
     }
     else if (num_collisions > 1)
     {
         // This case is tricky to handle, so for now just go back to the start
         // of the frame
-        player.pos -= dt * player_velocity;
+        player_entity->transform.pos -= dt * player_velocity;
     }
 }
 
 static void draw_scene()
 {
     draw_skybox(skybox, camera_view.compute_position());
-    for (auto wall : all_walls)
+    for (auto& entity : entities)
     {
-        Transform3d box_transform(Vec3(wall.pos.x, wall.pos.y, 0.5f), Vec3(wall.scale.x, wall.scale.y, 1.0f), wall.rotation);
+        Transform3d box_transform(Vec3(entity.transform.pos.x, entity.transform.pos.y, 0.5f), Vec3(entity.transform.scale.x, entity.transform.scale.y, 1.0f), entity.transform.rotation);
         draw_box(box_transform);
     }
-
-    Transform3d player_transform(Vec3(player.pos.x, player.pos.y, 0.0f), Vec3(1.0f, 1.0f, 1.0f), 0.0f);
-    draw_object(player_transform, test_object);
-
-    // Draw ground
-    Transform3d ground_transform(Vec3(0.0f, 0.0f, -0.1f), Vec3(20.0f, 20.0f, 0.2f), 0.0f);
-    draw_box(ground_transform);
 }
 
 void render_game()
@@ -449,10 +457,10 @@ void render_game()
     if (editor_enabled)
     {
         prepare_debug_draw(camera);
-        for (auto wall : all_walls)
+        for (auto& entity : entities)
         {
             float r, g, b;
-            if (&wall == selected_object)
+            if (entity.ref == selected_object)
             {
                 r = 1.0f;
                 g = 1.0f;
@@ -465,10 +473,7 @@ void render_game()
                 b = 0.0f;
             }
 
-            debug_draw_rectangle(wall, r, g, b);
+            debug_draw_rectangle(entity.transform, r, g, b);
         }
-
-        // Draw player
-        debug_draw_rectangle(player, 0.0f, 0.0f, 1.0f);
     }
 }
