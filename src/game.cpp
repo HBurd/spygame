@@ -5,6 +5,7 @@
 #include "input.h"
 #include "shapes.h"
 #include "entity.h"
+#include "save_load.h"
 
 #include "imgui.h"
 #include <cmath>
@@ -34,6 +35,8 @@ Quaternion CameraView::compute_orientation() const
     return Quaternion::RotateZ(yaw) * Quaternion::RotateX(pitch);
 }
 
+GameState game_state;
+
 Camera camera;
 CameraView camera_view;
 
@@ -41,8 +44,6 @@ LightSource light_source;
 RenderObject skybox;
 
 RenderObject test_object;
-
-EntityRef player;
 
 Vec2 player_velocity;
 
@@ -56,10 +57,18 @@ void init_game()
     light_source.camera.pos = Vec3(0.0f, 0.0f, 10.0f);
     light_source.camera.orientation = Quaternion::RotateZ(1.0f) * Quaternion::RotateX(-0.25f * M_PI);
 
-    create_entity(Transform2d({2.0f, 0.0f}, {0.5f, 5.0f}, 0.1f));
-    create_entity(Transform2d({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
+    if (load_scene("test.scene"))
+    {
+        // Scene loaded successfully
+    }
+    else
+    {
+        create_entity(Transform2d({2.0f, 0.0f}, {0.5f, 5.0f}, 0.1f));
+        create_entity(Transform2d({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
 
-    player = create_entity(Transform2d());
+        game_state.player = create_entity(Transform2d());
+    }
+
 
     skybox = render::create_skybox("cubemap.png");
     test_object = render::load_mesh("bettermug.obj");
@@ -242,6 +251,14 @@ void update_game(float dt)
     {
         if (ImGui::BeginMainMenuBar())
         {
+            if (ImGui::BeginMenu("File"))
+            {
+                if (ImGui::MenuItem("Save scene"))
+                {
+                    save_scene("test.scene");
+                }
+                ImGui::EndMenu();
+            }
             if (ImGui::BeginMenu("Create"))
             {
                 if (ImGui::MenuItem("Wall"))
@@ -398,39 +415,41 @@ void update_game(float dt)
         player_velocity += Vec2(0.0f, -1.0f);
     }
 
-    Entity* player_entity = lookup_entity(player);
-    assert(player_entity);
+    Entity* player_entity = lookup_entity(game_state.player);
 
-    player_entity->transform.pos += dt * player_velocity;
-
-    // Check for collisions
-    uint num_collisions = 0;
-    Vec2 penetration;
-    for (auto& entity : entities)
+    if (player_entity)
     {
-        if (&entity == player_entity)
+        player_entity->transform.pos += dt * player_velocity;
+
+        // Check for collisions
+        uint num_collisions = 0;
+        Vec2 penetration;
+        for (auto& entity : entities)
         {
-            continue;
+            if (&entity == player_entity)
+            {
+                continue;
+            }
+
+            Vec2 collision;
+            if (intersect(player_entity->transform, entity.transform, &penetration))
+            {
+                num_collisions++;
+            }
         }
 
-        Vec2 collision;
-        if (intersect(player_entity->transform, entity.transform, &penetration))
+        // Resolve collisions
+        if (num_collisions == 1)
         {
-            num_collisions++;
+            // In this case we can just translate by the penetration vector
+            player_entity->transform.pos += 1.05f * penetration;
         }
-    }
-
-    // Resolve collisions
-    if (num_collisions == 1)
-    {
-        // In this case we can just translate by the penetration vector
-        player_entity->transform.pos += 1.05f * penetration;
-    }
-    else if (num_collisions > 1)
-    {
-        // This case is tricky to handle, so for now just go back to the start
-        // of the frame
-        player_entity->transform.pos -= dt * player_velocity;
+        else if (num_collisions > 1)
+        {
+            // This case is tricky to handle, so for now just go back to the start
+            // of the frame
+            player_entity->transform.pos -= dt * player_velocity;
+        }
     }
 }
 

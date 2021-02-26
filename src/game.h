@@ -1,6 +1,13 @@
 #pragma once
 
-struct Renderer;
+#include "entity.h"
+
+struct GameState
+{
+    EntityRef player;
+};
+
+extern GameState game_state;
 
 void init_game();
 void update_game(float dt);

@@ -3,24 +3,6 @@
 
 MAKE_ARRAY(entities, Entity, MAX_ENTITIES);
 
-struct EntityRecord
-{
-    uint version;   // Compared with EntityRef to check if ref is valid
-
-    union
-    {
-        size_t index;
-        size_t next_free;
-    };
-
-    static size_t first_free;
-
-    static EntityRecord records[MAX_ENTITIES];
-
-    static EntityRef create(size_t index);
-    static void destroy(EntityRef ref);
-};
-
 size_t EntityRecord::first_free;
 
 EntityRecord EntityRecord::records[MAX_ENTITIES];
