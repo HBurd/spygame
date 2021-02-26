@@ -80,7 +80,7 @@ struct Quaternion
     // TODO: use the Mat4 type
     void to_matrix(float* matrix);
 
-    Vec3 apply_rotation(const Vec3& x);
+    Vec3 apply_rotation(const Vec3& x) const;
 
     static Quaternion RotateX(float angle);
     static Quaternion RotateY(float angle);

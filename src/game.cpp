@@ -13,44 +13,15 @@ using namespace render;
 
 struct CameraView
 {
-    float fov = 0.5f * 3.14159265f;
-    float near = 0.1f;
-    float far = 100.0f;
     float distance = 5.0f;
     float yaw = 0.0f;
     float pitch = 0.1f;
 
     Vec3 target;
 
-    // Pixel coordinates are measured in pixels from the top-left of the window
-    Vec3 pixel_direction(int x, int y, int width, int height) const;
     Vec3 compute_position() const;
     Quaternion compute_orientation() const;
-    Mat4 compute_matrix(float aspect_ratio) const;
 };
-
-Vec3 CameraView::pixel_direction(int x, int y, int width, int height) const
-{
-    // The +0.5f shifts the coordinate to the centre of the pixel
-    Vec3 dir = Vec3(x, y, 0.0f) - 0.5f * Vec3(width, height, 0.0f) + Vec3(0.5f, 0.5f, 0.0f);
-
-    // Flip the y axis to point up
-    dir.y = -dir.y;
-
-    // Width of the rectangle filling the screen at distance cos(fov/2) from the camera
-    float image_width = 2.0f * sinf(0.5f * fov);
-
-    // Scale to the size of this rectangle
-    dir *= image_width / width;
-
-    // Move onto this rectangle
-    dir.z = -cosf(0.5f * fov);
-
-    // Apply camera rotation
-    dir = compute_orientation().apply_rotation(dir);
-
-    return dir;
-}
 
 Vec3 CameraView::compute_position() const
 {
@@ -62,18 +33,8 @@ Quaternion CameraView::compute_orientation() const
     return Quaternion::RotateZ(yaw) * Quaternion::RotateX(pitch);
 }
 
-Mat4 CameraView::compute_matrix(float aspect_ratio) const
-{
-    Mat3 rotation_mat;
-    compute_orientation().inverse().to_matrix(rotation_mat.data);
-
-    return Mat4::Perspective(near, far, fov, aspect_ratio)
-           * Mat4::Translate(Vec3(0.0f, 0.0f, -distance))
-           * Mat4(rotation_mat)
-           * Mat4::Translate(-target);
-}
-
-CameraView camera;
+Camera camera;
+CameraView camera_view;
 CameraView light;
 
 LightSource light_source;
@@ -89,7 +50,10 @@ MAKE_ARRAY(all_walls, Transform2d, 1024);
 
 void init_game()
 {
-    light_source = make_light_source(1024, Mat4::Orthographic(0.1f, 20.0f, 10.0f, 10.0f), true);
+    camera.set_fov(0.5f * M_PI);
+    light_source = make_light_source(1024);
+    light_source.camera.is_ortho = true;
+    light_source.camera.near_width = 20.0f;
 
     all_walls.push(Transform2d({2.0f, 0.0f}, {0.5f, 5.0f}, 0.1f));
     all_walls.push(Transform2d({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
@@ -296,7 +260,7 @@ void update_game(float dt)
         {
             MouseState mouse = get_mouse_state();
             Vec3 mouse_dir = camera.pixel_direction(mouse.x, mouse.y, get_screen_width(), get_screen_height());
-            Vec2 mouse_pos = z_intersect(camera.compute_position(), mouse_dir, 0.0f);
+            Vec2 mouse_pos = z_intersect(camera_view.compute_position(), mouse_dir, 0.0f);
 
             if (mouse.left.down)
             {
@@ -348,9 +312,21 @@ void update_game(float dt)
                 ImGui::SliderFloat("Pitch", &light.pitch, 0.0f, M_PI);
                 ImGui::SliderFloat("Yaw", &light.yaw, 0.0f, 2.0f * M_PI);
                 ImGui::InputFloat("Distance", &light.distance);
-                ImGui::InputFloat("Near", &light.near);
-                ImGui::InputFloat("Far", &light.far);
-                ImGui::SliderFloat("FOV", &light.fov, 0.0f, 3.0f);
+
+                ImGui::InputFloat("Near", &light_source.camera.near);
+                ImGui::InputFloat("Far", &light_source.camera.far);
+
+                if (light_source.camera.is_ortho)
+                {
+                    
+                }
+                else
+                {
+                    float fov = light_source.camera.get_fov();
+                    ImGui::SliderFloat("FOV", &fov, 0.0f, 3.0f);
+                    light_source.camera.set_fov(fov);
+                }
+
                 ImGui::SliderFloat("Intensity", &light_source.intensity, 0.0f, 10.0f);
                 ImGui::Image((void*)(intptr_t)light_source.texture, ImVec2(200.0f, 200.0f));
             }
@@ -362,25 +338,25 @@ void update_game(float dt)
         MouseState mouse = get_mouse_state();
         if (mouse.right.held)
         {
-            camera.yaw -= 0.01f * mouse.xrel;
-            camera.pitch -= 0.01f * mouse.yrel;
+            camera_view.yaw -= 0.01f * mouse.xrel;
+            camera_view.pitch -= 0.01f * mouse.yrel;
 
-            if (camera.yaw > M_PI)
+            if (camera_view.yaw > M_PI)
             {
-                camera.yaw -= 2.0f * M_PI;
+                camera_view.yaw -= 2.0f * M_PI;
             }
-            else if (camera.yaw < -M_PI)
+            else if (camera_view.yaw < -M_PI)
             {
-                camera.yaw += 2.0f * M_PI;
+                camera_view.yaw += 2.0f * M_PI;
             }
 
-            if (camera.pitch < 0.0f)
+            if (camera_view.pitch < 0.0f)
             {
-                camera.pitch = 0.0f;
+                camera_view.pitch = 0.0f;
             }
-            else if (camera.pitch > M_PI)
+            else if (camera_view.pitch > M_PI)
             {
-                camera.pitch = M_PI;
+                camera_view.pitch = M_PI;
             }
         }
     }
@@ -390,19 +366,19 @@ void update_game(float dt)
 
     if (get_key_state(SDL_SCANCODE_LEFT).held)
     {
-        camera.target += dt * Vec3(-1.0f, 0.0f, 0.0f);
+        camera_view.target += dt * Vec3(-1.0f, 0.0f, 0.0f);
     }
     if (get_key_state(SDL_SCANCODE_RIGHT).held)
     {
-        camera.target += dt * Vec3(1.0f, 0.0f, 0.0f);
+        camera_view.target += dt * Vec3(1.0f, 0.0f, 0.0f);
     }
     if (get_key_state(SDL_SCANCODE_UP).held)
     {
-        camera.target += dt * Vec3(0.0f, 1.0f, 0.0f);
+        camera_view.target += dt * Vec3(0.0f, 1.0f, 0.0f);
     }
     if (get_key_state(SDL_SCANCODE_DOWN).held)
     {
-        camera.target += dt * Vec3(0.0f, -1.0f, 0.0f);
+        camera_view.target += dt * Vec3(0.0f, -1.0f, 0.0f);
     }
 
     player_velocity = Vec2();
@@ -454,7 +430,7 @@ void update_game(float dt)
 
 static void draw_scene()
 {
-    draw_skybox(skybox, camera.compute_position());
+    draw_skybox(skybox, camera_view.compute_position());
     for (auto wall : all_walls)
     {
         Transform3d box_transform(Vec3(wall.pos.x, wall.pos.y, 0.5f), Vec3(wall.scale.x, wall.scale.y, 1.0f), wall.rotation);
@@ -471,17 +447,19 @@ static void draw_scene()
 
 void render_game()
 {
-    light_source.pos = light.compute_position();
-    light_source.orientation = light.compute_orientation();
+    light_source.camera.pos = light.compute_position();
+    light_source.camera.orientation = light.compute_orientation();
     prepare_lightmap_draw(light_source);
     draw_scene();
 
-    prepare_final_draw(camera.compute_matrix(get_aspect_ratio()), camera.compute_orientation().apply_rotation(Vec3(0.0f, 0.0f, -1.0f)), light_source);
+    camera.pos = camera_view.compute_position();
+    camera.orientation = camera_view.compute_orientation();
+    prepare_final_draw(camera, light_source);
     draw_scene();
 
     if (editor_enabled)
     {
-        prepare_debug_draw(camera.compute_matrix(get_aspect_ratio()));
+        prepare_debug_draw(camera);
         for (auto wall : all_walls)
         {
             float r, g, b;

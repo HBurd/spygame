@@ -13,18 +13,36 @@ struct SDL_Window;
 
 namespace render {
 
+struct Camera
+{
+    math::Vec3 pos;
+    math::Quaternion orientation;
+    float near = 0.1f;
+    float far = 100.0f;
+    float near_width = 1.0f; // width of near plane
+    bool is_ortho = false;
+
+    // Sets near_width for a given fov.
+    // Only valid for perspective cameras
+    void set_fov(float fov);
+    float get_fov() const;
+
+    // x and y are in pixels from the top left, width and height are width and height of the camera image
+    math::Vec3 pixel_direction(int x, int y, int width, int height) const;
+
+    // Returns camera_matrix * view_matrix
+    math::Mat4 compute_matrix(float aspect_ratio) const;
+};
+
 struct LightSource
 {
     GLuint fbo;
     GLuint texture;
     int side;
-    bool is_directional;
+    float aspect_ratio = 1.0f;
     float intensity = 1.0f;
 
-    math::Mat4 matrix;
-
-    math::Vec3 pos;
-    math::Quaternion orientation;
+    Camera camera;
 };
 
 struct RenderObject
@@ -44,11 +62,11 @@ struct RenderObject
 
 void init_rendering(SDL_Window* window);
 
-LightSource make_light_source(int side, math::Mat4 matrix, bool is_directional);
+LightSource make_light_source(int side);
 
-void prepare_final_draw(math::Mat4 camera_matrix, math::Vec3 camera_dir, LightSource light);
+void prepare_final_draw(Camera camera, LightSource light);
 void prepare_lightmap_draw(LightSource light);
-void prepare_debug_draw(math::Mat4 camera_matrix);
+void prepare_debug_draw(Camera camera);
 
 void draw_box(Transform3d box);
 void draw_object(Transform3d transform, RenderObject obj);

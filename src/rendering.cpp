@@ -250,13 +250,58 @@ static render::RenderObject create_render_object(Array<Vertex> vertices)
 
 namespace render {
 
-LightSource make_light_source(int side, math::Mat4 matrix, bool is_directional)
+void Camera::set_fov(float fov)
+{
+    near_width = 2.0f * near * tanf(0.5f * fov);
+}
+
+float Camera::get_fov() const
+{
+    return 2.0f * atanf(0.5f * near_width / near);
+}
+
+Mat4 Camera::compute_matrix(float aspect_ratio) const
+{
+    Mat3 rotation;
+    orientation.inverse().to_matrix(rotation.data);
+
+    Mat4 view = Mat4(rotation) * Mat4::Translate(-pos);
+
+    if (is_ortho)
+    {
+        return Mat4::Orthographic(near, far, near_width, near_width / aspect_ratio) * view;
+    }
+    else
+    {
+        return Mat4::Perspective(near, far, get_fov(), aspect_ratio) * view;
+    }
+}
+
+Vec3 Camera::pixel_direction(int x, int y, int width, int height) const
+{
+    // The +0.5f shifts the coordinate to the centre of the pixel
+    Vec3 dir = Vec3(x, y, 0.0f) - 0.5f * Vec3(width, height, 0.0f) + Vec3(0.5f, 0.5f, 0.0f);
+
+    // Flip the y axis to point up
+    dir.y = -dir.y;
+
+    // Scale to the size of the near plane
+    dir *= near_width / width;
+
+    // Move onto this rectangle
+    dir.z = -near;
+
+    // Apply camera_view rotation
+    dir = orientation.apply_rotation(dir);
+
+    return dir;
+}
+
+LightSource make_light_source(int side)
 {
     LightSource light;
 
     light.side = side;
-    light.matrix = matrix;
-    light.is_directional = is_directional;
 
     glGenTextures(1, &light.texture);
     glBindTexture(GL_TEXTURE_2D, light.texture);
@@ -296,13 +341,8 @@ void prepare_lightmap_draw(LightSource light)
     glUseProgram(light_map_shader);
     selected_shader = light_map_shader;
 
-    Mat3 light_orientation;
-    light.orientation.inverse().to_matrix(light_orientation.data);
-
-    Mat4 light_camera_view = light.matrix * Mat4(light_orientation) * Mat4::Translate(-light.pos);
-
     GLint loc = glGetUniformLocation(selected_shader, "light");
-    glUniformMatrix4fv(loc, 1, GL_TRUE, light_camera_view.data);
+    glUniformMatrix4fv(loc, 1, GL_TRUE, light.camera.compute_matrix(light.aspect_ratio).data);
 }
 
 void init_rendering(SDL_Window* window)
@@ -342,7 +382,7 @@ void init_rendering(SDL_Window* window)
     light_map_shader = load_shader("shaders/shadow_vs.glsl", "shaders/shadow_fs.glsl");
 }
 
-void prepare_final_draw(Mat4 camera_matrix, Vec3 camera_dir, LightSource light)
+void prepare_final_draw(Camera camera, LightSource light)
 {
     glViewport(0, 0, screen_width, screen_height);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -354,30 +394,25 @@ void prepare_final_draw(Mat4 camera_matrix, Vec3 camera_dir, LightSource light)
     selected_shader = simple_shader;
 
     GLint loc = glGetUniformLocation(selected_shader, "camera");
-    glUniformMatrix4fv(loc, 1, GL_TRUE, camera_matrix.data);
+    glUniformMatrix4fv(loc, 1, GL_TRUE, camera.compute_matrix(get_aspect_ratio()).data);
 
     loc = glGetUniformLocation(selected_shader, "camera_dir");
-    glUniform3fv(loc, 1, camera_dir.array());
+    glUniform3fv(loc, 1, camera.orientation.apply_rotation(Vec3(0.0f, 0.0f, -1.0f)).array());
 
     loc = glGetUniformLocation(selected_shader, "light_pos");
-    glUniform3fv(loc, 1, light.pos.array());
-
-    Mat3 light_orientation;
-    light.orientation.inverse().to_matrix(light_orientation.data);
-
-    Mat4 light_camera_view = light.matrix * Mat4(light_orientation) * Mat4::Translate(-light.pos);
+    glUniform3fv(loc, 1, light.camera.pos.array());
 
     loc = glGetUniformLocation(selected_shader, "light");
-    glUniformMatrix4fv(loc, 1, GL_TRUE, light_camera_view.data);
+    glUniformMatrix4fv(loc, 1, GL_TRUE, light.camera.compute_matrix(light.aspect_ratio).data);
 
     loc = glGetUniformLocation(selected_shader, "light_direction");
-    glUniform3fv(loc, 1, light.orientation.apply_rotation(Vec3(0.0f, 0.0f, -1.0f)).array());
+    glUniform3fv(loc, 1, light.camera.orientation.apply_rotation(Vec3(0.0f, 0.0f, -1.0f)).array());
 
     loc = glGetUniformLocation(selected_shader, "intensity");
     glUniform1f(loc, light.intensity);
 
     loc = glGetUniformLocation(selected_shader, "is_directional");
-    glUniform1i(loc, light.is_directional);
+    glUniform1i(loc, light.camera.is_ortho);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, light.texture);
@@ -469,7 +504,7 @@ void draw_object(Transform3d transform, RenderObject obj)
     glDrawArrays(GL_TRIANGLES, 0, obj.num_vertices);
 }
 
-void prepare_debug_draw(Mat4 camera_matrix)
+void prepare_debug_draw(Camera camera)
 {
     glViewport(0, 0, screen_width, screen_height);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -477,7 +512,7 @@ void prepare_debug_draw(Mat4 camera_matrix)
     glUseProgram(debug_shader);
 
     GLint loc = glGetUniformLocation(debug_shader, "camera");
-    glUniformMatrix4fv(loc, 1, GL_TRUE, camera_matrix.data);
+    glUniformMatrix4fv(loc, 1, GL_TRUE, camera.compute_matrix(get_aspect_ratio()).data);
 }
 
 void debug_draw_rectangle(Transform2d rect, float r, float g, float b)

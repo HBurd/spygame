@@ -370,7 +370,7 @@ void Quaternion::to_matrix(float* matrix)
     matrix[8] = 1 - 2 * (x*x + y*y);
 }
 
-Vec3 Quaternion::apply_rotation(const Vec3& x)
+Vec3 Quaternion::apply_rotation(const Vec3& x) const
 {
     Quaternion x_quat;
     x_quat.w = 0.0f;
