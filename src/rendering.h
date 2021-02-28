@@ -58,10 +58,8 @@ struct Mesh
 
 struct Material
 {
-    // Needs to be free'd
-    const char* path = nullptr;
-
-    float diffuse_ratio = 1.0f;
+    math::Vec3 diffuse_color = math::Vec3(1.0f, 1.0f, 1.0f);
+    math::Vec3 specular_color = math::Vec3(0.0f, 0.0f, 0.0f);
     float shininess = 1.0f;
 
     bool lit = true;

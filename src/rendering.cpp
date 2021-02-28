@@ -252,28 +252,19 @@ static u32 create_mesh(Array<Vertex> vertices)
     return index;
 }
 
-static u32 load_material(const char* path)
+static u32 load_material(fastObjMaterial* mat)
 {
-    // Only load the material if it has not been loaded already
-    for (uint i = 0; i < render::materials.size; ++i)
-    {
-        if (render::materials[i].path && !strcmp(render::materials[i].path, path))
-        {
-            // A string with this path has already been loaded
-            return i;
-        }
-    }
-
     render::Material new_material;
 
-    size_t path_len = strlen(path) + 1;
-    char* new_path = (char*) malloc(path_len);
+    new_material.diffuse_color = Vec3(mat->Kd);
+    new_material.specular_color = Vec3(mat->Ks);
+    new_material.shininess = mat->Ns;
 
-    memcpy(new_path, path, path_len);
-
-    new_material.path = new_path;
-    new_material.texture_id = load_texture(path);
-    new_material.textured = true;
+    if (mat->map_Kd.path)
+    {
+        new_material.texture_id = load_texture(mat->map_Kd.path);
+        new_material.textured = true;
+    }
 
     u32 index = render::materials.size;
     render::materials.push(new_material);
@@ -481,8 +472,8 @@ void prepare_final_draw(Camera camera, LightSource light)
     GLint loc = glGetUniformLocation(selected_shader, "camera");
     glUniformMatrix4fv(loc, 1, GL_TRUE, camera.compute_matrix(get_aspect_ratio()).data);
 
-    loc = glGetUniformLocation(selected_shader, "camera_dir");
-    glUniform3fv(loc, 1, camera.orientation.apply_rotation(Vec3(0.0f, 0.0f, -1.0f)).array());
+    loc = glGetUniformLocation(selected_shader, "camera_pos");
+    glUniform3fv(loc, 1, camera.pos.array());
 
     loc = glGetUniformLocation(selected_shader, "light_pos");
     glUniform3fv(loc, 1, light.camera.pos.array());
@@ -567,8 +558,11 @@ void draw_object(Transform3d transform, RenderObject obj)
     loc = glGetUniformLocation(selected_shader, "position");
     glUniform3fv(loc, 1, transform.pos.array());
 
-    loc = glGetUniformLocation(selected_shader, "diffuse_ratio");
-    glUniform1f(loc, mat.diffuse_ratio);
+    loc = glGetUniformLocation(selected_shader, "diffuse_color");
+    glUniform3fv(loc, 1, mat.diffuse_color.array());
+
+    loc = glGetUniformLocation(selected_shader, "specular_color");
+    glUniform3fv(loc, 1, mat.specular_color.array());
 
     loc = glGetUniformLocation(selected_shader, "shininess");
     glUniform1f(loc, mat.shininess);
@@ -636,7 +630,7 @@ RenderObject load_obj(const char* filename)
         // but that is not correct.
         if (mesh->materials[0].map_Kd.path)
         {
-            result.material_id = load_material(mesh->materials[0].map_Kd.path);
+            result.material_id = load_material(&mesh->materials[0]);
         }
     }
 
