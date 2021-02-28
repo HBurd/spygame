@@ -39,7 +39,9 @@ GLuint debug_shader;
 GLuint selected_shader;
 
 // Basic meshes
-render::RenderObjectIndex render::cube;
+render::RenderObject render::cube;
+u32 render::default_material;
+u32 render::cube_mesh;
 GLuint rect_vbo;
 GLuint rect_vao;
 
@@ -221,19 +223,19 @@ static uint load_texture(const char* path)
     return texture_id;
 }
 
-static render::RenderObjectIndex create_render_object(Array<Vertex> vertices)
+static u32 create_mesh(Array<Vertex> vertices)
 {
-    render::RenderObject obj;
+    render::Mesh mesh;
 
-    obj.num_vertices = vertices.size;
+    mesh.num_vertices = vertices.size;
 
-    glGenBuffers(1, &obj.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, obj.vbo);
+    glGenBuffers(1, &mesh.vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbo);
 
     glBufferData(GL_ARRAY_BUFFER, vertices.size * sizeof(Vertex), vertices.data, GL_STATIC_DRAW);
 
-    glGenVertexArrays(1, &obj.vao);
-    glBindVertexArray(obj.vao);
+    glGenVertexArrays(1, &mesh.vao);
+    glBindVertexArray(mesh.vao);
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)0);
@@ -244,9 +246,38 @@ static render::RenderObjectIndex create_render_object(Array<Vertex> vertices)
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)(2 * sizeof(Vec3)));
 
-    render::RenderObjectIndex index = render::render_objects.size;
+    u32 index = render::meshes.size;
 
-    render::render_objects.push(obj);
+    render::meshes.push(mesh);
+    return index;
+}
+
+static u32 load_material(const char* path)
+{
+    // Only load the material if it has not been loaded already
+    for (uint i = 0; i < render::materials.size; ++i)
+    {
+        if (render::materials[i].path && !strcmp(render::materials[i].path, path))
+        {
+            // A string with this path has already been loaded
+            return i;
+        }
+    }
+
+    render::Material new_material;
+
+    size_t path_len = strlen(path) + 1;
+    char* new_path = (char*) malloc(path_len);
+
+    memcpy(new_path, path, path_len);
+
+    new_material.path = new_path;
+    new_material.texture_id = load_texture(path);
+    new_material.textured = true;
+
+    u32 index = render::materials.size;
+    render::materials.push(new_material);
+    
     return index;
 }
 
@@ -254,7 +285,8 @@ static render::RenderObjectIndex create_render_object(Array<Vertex> vertices)
 
 namespace render {
 
-MAKE_ARRAY(render_objects, RenderObject, 1024);
+MAKE_ARRAY(meshes, Mesh, 1024);
+MAKE_ARRAY(materials, Material, 1024);
 
 void Camera::set_fov(float fov)
 {
@@ -420,8 +452,16 @@ void init_rendering(SDL_Window* window)
         debug_shader = load_shader("shaders/debug_vs.glsl", "shaders/debug_fs.glsl");
     }
 
-    // Generate cube rener object
-    cube = create_render_object(generate_cube_mesh());
+    // Load default meshes, materials and objects
+    {
+        cube_mesh = create_mesh(generate_cube_mesh());
+        default_material = materials.size;
+        materials.push(Material());
+
+        cube.mesh_id = cube_mesh;
+        cube.material_id = default_material;
+    }
+
     simple_shader = load_shader("shaders/simple_vs.glsl", "shaders/simple_fs.glsl");
 
     light_map_shader = load_shader("shaders/shadow_vs.glsl", "shaders/shadow_fs.glsl");
@@ -468,11 +508,12 @@ void draw_box(Transform3d box)
     draw_object(box, cube);
 }
 
-void draw_skybox(RenderObjectIndex skybox_index, Vec3 camera_pos)
+void draw_skybox(RenderObject skybox, Vec3 camera_pos)
 {
-    RenderObject skybox = render_objects[skybox_index];
+    Mesh mesh = meshes[skybox.mesh_id];
+    Material mat = materials[skybox.material_id];
 
-    glBindVertexArray(skybox.vao);
+    glBindVertexArray(meshes[skybox.mesh_id].vao);
 
     Mat3 rotation;
     Vec3 scale(1.0f, 1.0f, 1.0f);
@@ -487,34 +528,35 @@ void draw_skybox(RenderObjectIndex skybox_index, Vec3 camera_pos)
     glUniform3fv(loc, 1, camera_pos.array());
 
     loc = glGetUniformLocation(selected_shader, "lit");
-    glUniform1i(loc, skybox.lit);
+    glUniform1i(loc, mat.lit);
 
     loc = glGetUniformLocation(selected_shader, "textured");
-    glUniform1i(loc, skybox.textured);
+    glUniform1i(loc, mat.textured);
 
     loc = glGetUniformLocation(selected_shader, "color_texture");
     glUniform1i(loc, 1);
 
-    if (skybox.textured)
+    if (mat.textured)
     {
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, textures[skybox.texture_id].id);
+        glBindTexture(GL_TEXTURE_2D, textures[mat.texture_id].id);
     }
 
     glDepthMask(GL_FALSE);
     glFrontFace(GL_CW);
-    glDrawArrays(GL_TRIANGLES, 0, skybox.num_vertices);
+    glDrawArrays(GL_TRIANGLES, 0, mesh.num_vertices);
     glFrontFace(GL_CCW);
     glDepthMask(GL_TRUE);
 }
 
-void draw_object(Transform3d transform, RenderObjectIndex obj_index)
+void draw_object(Transform3d transform, RenderObject obj)
 {
-    RenderObject obj = render_objects[obj_index];
+    Mesh mesh = meshes[obj.mesh_id];
+    Material mat = materials[obj.material_id];
 
     Mat3 rotation = Mat3::RotateZ(transform.rotation);
 
-    glBindVertexArray(obj.vao);
+    glBindVertexArray(mesh.vao);
 
     GLint loc = glGetUniformLocation(selected_shader, "rotation");
     glUniformMatrix3fv(loc, 1, GL_TRUE, rotation.data);
@@ -526,16 +568,16 @@ void draw_object(Transform3d transform, RenderObjectIndex obj_index)
     glUniform3fv(loc, 1, transform.pos.array());
 
     loc = glGetUniformLocation(selected_shader, "diffuse_ratio");
-    glUniform1f(loc, obj.diffuse_ratio);
+    glUniform1f(loc, mat.diffuse_ratio);
 
     loc = glGetUniformLocation(selected_shader, "shininess");
-    glUniform1f(loc, obj.shininess);
+    glUniform1f(loc, mat.shininess);
 
     loc = glGetUniformLocation(selected_shader, "lit");
-    glUniform1i(loc, obj.lit);
+    glUniform1i(loc, mat.lit);
 
     loc = glGetUniformLocation(selected_shader, "textured");
-    glUniform1i(loc, obj.textured);
+    glUniform1i(loc, mat.textured);
 
     // TODO: This has to be changed to allow multiple (shadowed) light sources
     // Also this only really has to be done once per shader
@@ -544,13 +586,65 @@ void draw_object(Transform3d transform, RenderObjectIndex obj_index)
     loc = glGetUniformLocation(selected_shader, "color_texture");
     glUniform1i(loc, 1);
 
-    if (obj.textured)
+    if (mat.textured)
     {
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, textures[obj.texture_id].id);
+        glBindTexture(GL_TEXTURE_2D, textures[mat.texture_id].id);
     }
 
-    glDrawArrays(GL_TRIANGLES, 0, obj.num_vertices);
+    glDrawArrays(GL_TRIANGLES, 0, mesh.num_vertices);
+}
+
+RenderObject load_obj(const char* filename)
+{
+    fastObjMesh* mesh = fast_obj_read(filename);
+
+    const uint face_vertices = 3;
+    const uint num_vertices = mesh->face_count * face_vertices;
+
+    Vertex* vertex_data = new Vertex[num_vertices];
+    Array<Vertex> vertices(vertex_data, 0, num_vertices);
+
+    for (uint f = 0; f < mesh->face_count; ++f)
+    {
+        if (mesh->face_vertices[f] != face_vertices)
+        {
+            fprintf(stderr, "Error loading mesh. Face has %u vertices, "
+                    "but only faces with %u vertices are supported.\n",
+                    mesh->face_vertices[f], face_vertices);
+            assert(false);
+        }
+
+        for (uint v = 0; v < face_vertices; ++v)
+        {
+            uint pos_index =  mesh->indices[face_vertices * f + v].p;
+            uint normal_idx = mesh->indices[face_vertices * f + v].n;
+            uint uv_idx =     mesh->indices[face_vertices * f + v].t;
+
+            vertices.push(Vertex(Vec3(mesh->positions + 3 * pos_index),
+                                 Vec3(mesh->normals   + 3 * normal_idx),
+                                 Vec2(mesh->texcoords + 2 * uv_idx)));
+        }
+    }
+
+    RenderObject result;
+    result.mesh_id = create_mesh(vertices);
+
+    if (mesh->material_count > 0)
+    {
+        // TODO: we are just finding the first texture associated with the material,
+        // but that is not correct.
+        if (mesh->materials[0].map_Kd.path)
+        {
+            result.material_id = load_material(mesh->materials[0].map_Kd.path);
+        }
+    }
+
+    fast_obj_destroy(mesh);
+
+    delete[] vertex_data;
+
+    return result;
 }
 
 void prepare_debug_draw(Camera camera)
@@ -613,66 +707,18 @@ float get_aspect_ratio()
     return float(screen_width) / float(screen_height);
 }
 
-RenderObjectIndex load_mesh(const char* filename)
+RenderObject create_skybox(const char* filename)
 {
-    fastObjMesh* mesh = fast_obj_read(filename);
+    RenderObject skybox;
+    skybox.mesh_id = cube_mesh;
+    skybox.material_id = materials.size;
 
-    const uint face_vertices = 3;
-    const uint num_vertices = mesh->face_count * face_vertices;
+    Material mat;
+    mat.textured = true;
+    mat.lit = false;
+    mat.texture_id = load_texture(filename);
 
-    Vertex* vertex_data = new Vertex[num_vertices];
-    Array<Vertex> vertices(vertex_data, 0, num_vertices);
-
-    for (uint f = 0; f < mesh->face_count; ++f)
-    {
-        if (mesh->face_vertices[f] != face_vertices)
-        {
-            fprintf(stderr, "Error loading mesh. Face has %u vertices, "
-                    "but only faces with %u vertices are supported.\n",
-                    mesh->face_vertices[f], face_vertices);
-            assert(false);
-        }
-
-        for (uint v = 0; v < face_vertices; ++v)
-        {
-            uint pos_index =  mesh->indices[face_vertices * f + v].p;
-            uint normal_idx = mesh->indices[face_vertices * f + v].n;
-            uint uv_idx =     mesh->indices[face_vertices * f + v].t;
-
-            vertices.push(Vertex(Vec3(mesh->positions + 3 * pos_index),
-                                 Vec3(mesh->normals   + 3 * normal_idx),
-                                 Vec2(mesh->texcoords + 2 * uv_idx)));
-        }
-    }
-
-    RenderObjectIndex result = create_render_object(vertices);
-
-    if (mesh->material_count > 0)
-    {
-        // TODO: we are just finding the first texture associated with the material,
-        // but that is not correct.
-        if (mesh->materials[0].map_Kd.path)
-        {
-            render_objects[result].texture_id = load_texture(mesh->materials[0].map_Kd.path);
-            render_objects[result].textured = true;
-        }
-    }
-
-    fast_obj_destroy(mesh);
-
-    delete[] vertex_data;
-
-    return result;
-}
-
-RenderObjectIndex create_skybox(const char* filename)
-{
-    // TODO: The mesh is duplicated with the cube. Does that matter?
-    RenderObjectIndex skybox = create_render_object(generate_cube_mesh());
-    render_objects[skybox].textured = true;
-    render_objects[skybox].lit = false;
-
-    render_objects[skybox].texture_id = load_texture(filename);
+    materials.push(mat);
 
     return skybox;
 }

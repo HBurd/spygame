@@ -41,7 +41,7 @@ Camera camera;
 CameraView camera_view;
 
 LightSource light_source;
-RenderObjectIndex skybox;
+RenderObject skybox;
 
 Vec2 player_velocity;
 
@@ -73,7 +73,7 @@ void init_game()
     Entity* player = lookup_entity(game_state.player);
     assert(player);
 
-    player->render_object = render::load_mesh("bettermug.obj");
+    player->render_object = render::load_obj("bettermug.obj");
 }
 
 Vec2 generic_support(Array<Vec2> points, Vec2 d)
