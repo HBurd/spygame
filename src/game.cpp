@@ -41,9 +41,7 @@ Camera camera;
 CameraView camera_view;
 
 LightSource light_source;
-RenderObject skybox;
-
-RenderObject test_object;
+RenderObjectIndex skybox;
 
 Vec2 player_velocity;
 
@@ -63,16 +61,19 @@ void init_game()
     }
     else
     {
+        // Create a random scene to start with
         create_entity(Transform2d({2.0f, 0.0f}, {0.5f, 5.0f}, 0.1f));
         create_entity(Transform2d({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
 
         game_state.player = create_entity(Transform2d());
     }
 
-
     skybox = render::create_skybox("cubemap.png");
-    test_object = render::load_mesh("bettermug.obj");
-    test_object.diffuse_ratio = 0.3f;
+
+    Entity* player = lookup_entity(game_state.player);
+    assert(player);
+
+    player->render_object = render::load_mesh("bettermug.obj");
 }
 
 Vec2 generic_support(Array<Vec2> points, Vec2 d)
@@ -459,7 +460,7 @@ static void draw_scene()
     for (auto& entity : entities)
     {
         Transform3d box_transform(Vec3(entity.transform.pos.x, entity.transform.pos.y, 0.5f), Vec3(entity.transform.scale.x, entity.transform.scale.y, 1.0f), entity.transform.rotation);
-        draw_box(box_transform);
+        draw_object(box_transform, entity.render_object);
     }
 }
 

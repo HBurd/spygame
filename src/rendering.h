@@ -64,6 +64,12 @@ struct RenderObject
     uint texture_id;
 };
 
+typedef u32 RenderObjectIndex;
+
+extern Array<RenderObject> render_objects;
+
+extern RenderObjectIndex cube;
+
 void init_rendering(SDL_Window* window);
 
 LightSource make_light_source(int side);
@@ -73,12 +79,13 @@ void prepare_lightmap_draw(LightSource light);
 void prepare_debug_draw(Camera camera);
 
 void draw_box(Transform3d box);
-void draw_object(Transform3d transform, RenderObject obj);
+void draw_object(Transform3d transform, RenderObjectIndex obj_index);
 void debug_draw_rectangle(Transform2d rect, float r, float g, float b);
-void draw_skybox(RenderObject skybox, math::Vec3 camera_pos);
+void draw_skybox(RenderObjectIndex skybox_index, math::Vec3 camera_pos);
 
-RenderObject load_mesh(const char* filename);
-RenderObject create_skybox(const char* filename);
+// Returns index of render object
+RenderObjectIndex load_mesh(const char* filename);
+RenderObjectIndex create_skybox(const char* filename);
 
 int get_screen_width();
 int get_screen_height();

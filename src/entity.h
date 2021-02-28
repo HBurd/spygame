@@ -2,6 +2,7 @@
 
 #include "util.h"
 #include "shapes.h"
+#include "rendering.h"
 
 #define MAX_ENTITIES 65536
 
@@ -16,6 +17,8 @@ struct EntityRef
 struct Entity
 {
     Transform2d transform;
+
+    render::RenderObjectIndex render_object = render::cube;
 
     EntityRef ref;
     

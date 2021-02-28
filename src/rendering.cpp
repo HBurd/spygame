@@ -39,7 +39,7 @@ GLuint debug_shader;
 GLuint selected_shader;
 
 // Basic meshes
-render::RenderObject cube;
+render::RenderObjectIndex render::cube;
 GLuint rect_vbo;
 GLuint rect_vao;
 
@@ -221,7 +221,7 @@ static uint load_texture(const char* path)
     return texture_id;
 }
 
-static render::RenderObject create_render_object(Array<Vertex> vertices)
+static render::RenderObjectIndex create_render_object(Array<Vertex> vertices)
 {
     render::RenderObject obj;
 
@@ -244,12 +244,17 @@ static render::RenderObject create_render_object(Array<Vertex> vertices)
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)(2 * sizeof(Vec3)));
 
-    return obj;
+    render::RenderObjectIndex index = render::render_objects.size;
+
+    render::render_objects.push(obj);
+    return index;
 }
 
 // Public API
 
 namespace render {
+
+MAKE_ARRAY(render_objects, RenderObject, 1024);
 
 void Camera::set_fov(float fov)
 {
@@ -463,8 +468,10 @@ void draw_box(Transform3d box)
     draw_object(box, cube);
 }
 
-void draw_skybox(RenderObject skybox, Vec3 camera_pos)
+void draw_skybox(RenderObjectIndex skybox_index, Vec3 camera_pos)
 {
+    RenderObject skybox = render_objects[skybox_index];
+
     glBindVertexArray(skybox.vao);
 
     Mat3 rotation;
@@ -501,8 +508,10 @@ void draw_skybox(RenderObject skybox, Vec3 camera_pos)
     glDepthMask(GL_TRUE);
 }
 
-void draw_object(Transform3d transform, RenderObject obj)
+void draw_object(Transform3d transform, RenderObjectIndex obj_index)
 {
+    RenderObject obj = render_objects[obj_index];
+
     Mat3 rotation = Mat3::RotateZ(transform.rotation);
 
     glBindVertexArray(obj.vao);
@@ -604,7 +613,7 @@ float get_aspect_ratio()
     return float(screen_width) / float(screen_height);
 }
 
-RenderObject load_mesh(const char* filename)
+RenderObjectIndex load_mesh(const char* filename)
 {
     fastObjMesh* mesh = fast_obj_read(filename);
 
@@ -636,16 +645,16 @@ RenderObject load_mesh(const char* filename)
         }
     }
 
-    RenderObject result = create_render_object(vertices);
+    RenderObjectIndex result = create_render_object(vertices);
 
     if (mesh->material_count > 0)
     {
         // TODO: we are just finding the first texture associated with the material,
-        // but that might not be correct.
+        // but that is not correct.
         if (mesh->materials[0].map_Kd.path)
         {
-            result.texture_id = load_texture(mesh->materials[0].map_Kd.path);
-            result.textured = true;
+            render_objects[result].texture_id = load_texture(mesh->materials[0].map_Kd.path);
+            render_objects[result].textured = true;
         }
     }
 
@@ -656,15 +665,14 @@ RenderObject load_mesh(const char* filename)
     return result;
 }
 
-RenderObject create_skybox(const char* filename)
+RenderObjectIndex create_skybox(const char* filename)
 {
-    // TODO: Something to think about: Can RenderObjects share opengl objects?
-    // What do we do when destroying a skybox? How do we know not to destroy cube?
-    RenderObject skybox = cube;
-    skybox.textured = true;
-    skybox.lit = false;
+    // TODO: The mesh is duplicated with the cube. Does that matter?
+    RenderObjectIndex skybox = create_render_object(generate_cube_mesh());
+    render_objects[skybox].textured = true;
+    render_objects[skybox].lit = false;
 
-    skybox.texture_id = load_texture(filename);
+    render_objects[skybox].texture_id = load_texture(filename);
 
     return skybox;
 }
