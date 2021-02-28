@@ -4,6 +4,8 @@
 #include <cassert>
 #include <cstddef>
 
+#define INVALID_INDEX 0xFFFFFFFF
+
 #define ARRAY_LENGTH(x) (sizeof(x) / sizeof (*(x)))
 
 typedef unsigned int uint;

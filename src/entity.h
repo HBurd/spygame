@@ -18,7 +18,7 @@ struct Entity
 {
     Transform2d transform;
 
-    render::RenderObject render_object = render::cube;
+    render::RenderObjectIndex render_object = render::cube;
 
     EntityRef ref;
     

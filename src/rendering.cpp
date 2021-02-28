@@ -39,7 +39,7 @@ GLuint debug_shader;
 GLuint selected_shader;
 
 // Basic meshes
-render::RenderObject render::cube;
+render::RenderObjectIndex render::cube;
 u32 render::default_material;
 u32 render::cube_mesh;
 GLuint rect_vbo;
@@ -276,6 +276,7 @@ static u32 load_material(fastObjMaterial* mat)
 
 namespace render {
 
+MAKE_ARRAY(render_objects, RenderObject, 1024);
 MAKE_ARRAY(meshes, Mesh, 1024);
 MAKE_ARRAY(materials, Material, 1024);
 
@@ -449,8 +450,12 @@ void init_rendering(SDL_Window* window)
         default_material = materials.size;
         materials.push(Material());
 
-        cube.mesh_id = cube_mesh;
-        cube.material_id = default_material;
+        RenderObject cube_object;
+        cube_object.mesh_id = cube_mesh;
+        cube_object.material_id = default_material;
+
+        cube = render_objects.size;
+        render_objects.push(cube_object);
     }
 
     simple_shader = load_shader("shaders/simple_vs.glsl", "shaders/simple_fs.glsl");
@@ -499,8 +504,10 @@ void draw_box(Transform3d box)
     draw_object(box, cube);
 }
 
-void draw_skybox(RenderObject skybox, Vec3 camera_pos)
+void draw_skybox(RenderObjectIndex skybox_index, Vec3 camera_pos)
 {
+    RenderObject skybox = render_objects[skybox_index];
+
     Mesh mesh = meshes[skybox.mesh_id];
     Material mat = materials[skybox.material_id];
 
@@ -540,105 +547,125 @@ void draw_skybox(RenderObject skybox, Vec3 camera_pos)
     glDepthMask(GL_TRUE);
 }
 
-void draw_object(Transform3d transform, RenderObject obj)
+void draw_object(Transform3d transform, RenderObjectIndex obj_index)
 {
-    Mesh mesh = meshes[obj.mesh_id];
-    Material mat = materials[obj.material_id];
-
-    Mat3 rotation = Mat3::RotateZ(transform.rotation);
-
-    glBindVertexArray(mesh.vao);
-
-    GLint loc = glGetUniformLocation(selected_shader, "rotation");
-    glUniformMatrix3fv(loc, 1, GL_TRUE, rotation.data);
-
-    loc = glGetUniformLocation(selected_shader, "scale");
-    glUniform3fv(loc, 1, transform.scale.array());
-
-    loc = glGetUniformLocation(selected_shader, "position");
-    glUniform3fv(loc, 1, transform.pos.array());
-
-    loc = glGetUniformLocation(selected_shader, "diffuse_color");
-    glUniform3fv(loc, 1, mat.diffuse_color.array());
-
-    loc = glGetUniformLocation(selected_shader, "specular_color");
-    glUniform3fv(loc, 1, mat.specular_color.array());
-
-    loc = glGetUniformLocation(selected_shader, "shininess");
-    glUniform1f(loc, mat.shininess);
-
-    loc = glGetUniformLocation(selected_shader, "lit");
-    glUniform1i(loc, mat.lit);
-
-    loc = glGetUniformLocation(selected_shader, "textured");
-    glUniform1i(loc, mat.textured);
-
-    // TODO: This has to be changed to allow multiple (shadowed) light sources
-    // Also this only really has to be done once per shader
-    loc = glGetUniformLocation(selected_shader, "light_depth");
-    glUniform1i(loc, 0);
-    loc = glGetUniformLocation(selected_shader, "color_texture");
-    glUniform1i(loc, 1);
-
-    if (mat.textured)
+    while (obj_index != INVALID_INDEX)
     {
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, textures[mat.texture_id].id);
-    }
+        RenderObject obj = render_objects[obj_index];
 
-    glDrawArrays(GL_TRIANGLES, 0, mesh.num_vertices);
+        Mesh mesh = meshes[obj.mesh_id];
+        Material mat = materials[obj.material_id];
+
+        Mat3 rotation = Mat3::RotateZ(transform.rotation);
+
+        glBindVertexArray(mesh.vao);
+
+        GLint loc = glGetUniformLocation(selected_shader, "rotation");
+        glUniformMatrix3fv(loc, 1, GL_TRUE, rotation.data);
+
+        loc = glGetUniformLocation(selected_shader, "scale");
+        glUniform3fv(loc, 1, transform.scale.array());
+
+        loc = glGetUniformLocation(selected_shader, "position");
+        glUniform3fv(loc, 1, transform.pos.array());
+
+        loc = glGetUniformLocation(selected_shader, "diffuse_color");
+        glUniform3fv(loc, 1, mat.diffuse_color.array());
+
+        loc = glGetUniformLocation(selected_shader, "specular_color");
+        glUniform3fv(loc, 1, mat.specular_color.array());
+
+        loc = glGetUniformLocation(selected_shader, "shininess");
+        glUniform1f(loc, mat.shininess);
+
+        loc = glGetUniformLocation(selected_shader, "lit");
+        glUniform1i(loc, mat.lit);
+
+        loc = glGetUniformLocation(selected_shader, "textured");
+        glUniform1i(loc, mat.textured);
+
+        // TODO: This has to be changed to allow multiple (shadowed) light sources
+        // Also this only really has to be done once per shader
+        loc = glGetUniformLocation(selected_shader, "light_depth");
+        glUniform1i(loc, 0);
+        loc = glGetUniformLocation(selected_shader, "color_texture");
+        glUniform1i(loc, 1);
+
+        if (mat.textured)
+        {
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, textures[mat.texture_id].id);
+        }
+
+        glDrawArrays(GL_TRIANGLES, 0, mesh.num_vertices);
+
+        obj_index = obj.next_group;
+    }
 }
 
-RenderObject load_obj(const char* filename)
+RenderObjectIndex load_obj(const char* filename)
 {
+    RenderObjectIndex last_render_object = INVALID_INDEX;
+
     fastObjMesh* mesh = fast_obj_read(filename);
 
     const uint face_vertices = 3;
-    const uint num_vertices = mesh->face_count * face_vertices;
 
-    Vertex* vertex_data = new Vertex[num_vertices];
-    Array<Vertex> vertices(vertex_data, 0, num_vertices);
-
-    for (uint f = 0; f < mesh->face_count; ++f)
+    for (uint g = 0; g < mesh->group_count; ++g)
     {
-        if (mesh->face_vertices[f] != face_vertices)
+        uint group_vertices = mesh->groups[g].face_count * face_vertices;
+
+        if (!group_vertices) continue;
+
+        // TODO: I'd rather not do an allocation for each iteration
+        Vertex* vertex_data = new Vertex[group_vertices];
+        Array<Vertex> vertices(vertex_data, 0, group_vertices);
+
+        uint group_material = mesh->face_materials[mesh->groups[g].face_offset];
+
+        for (uint f = mesh->groups[g].face_offset; f < mesh->groups[g].face_offset + mesh->groups[g].face_count; ++f)
         {
-            fprintf(stderr, "Error loading mesh. Face has %u vertices, "
-                    "but only faces with %u vertices are supported.\n",
-                    mesh->face_vertices[f], face_vertices);
-            assert(false);
+            if (mesh->face_vertices[f] != face_vertices)
+            {
+                fprintf(stderr, "Error loading mesh. Face has %u vertices, "
+                        "but only faces with %u vertices are supported.\n",
+                        mesh->face_vertices[f], face_vertices);
+                assert(false);
+            }
+
+            if (mesh->face_materials[f] != group_material)
+            {
+                fprintf(stderr, "Error loading mesh. A group must only have a single material, "
+                        "but this group has more than one material.");
+                assert(false);
+            }
+
+            for (uint v = 0; v < face_vertices; ++v)
+            {
+                uint pos_index =  mesh->indices[face_vertices * f + v].p;
+                uint normal_idx = mesh->indices[face_vertices * f + v].n;
+                uint uv_idx =     mesh->indices[face_vertices * f + v].t;
+
+                vertices.push(Vertex(Vec3(mesh->positions + 3 * pos_index),
+                                     Vec3(mesh->normals   + 3 * normal_idx),
+                                     Vec2(mesh->texcoords + 2 * uv_idx)));
+            }
         }
 
-        for (uint v = 0; v < face_vertices; ++v)
-        {
-            uint pos_index =  mesh->indices[face_vertices * f + v].p;
-            uint normal_idx = mesh->indices[face_vertices * f + v].n;
-            uint uv_idx =     mesh->indices[face_vertices * f + v].t;
+        RenderObject render_object;
+        render_object.next_group = last_render_object;
+        render_object.mesh_id = create_mesh(vertices);
+        render_object.material_id = load_material(&mesh->materials[group_material]);
 
-            vertices.push(Vertex(Vec3(mesh->positions + 3 * pos_index),
-                                 Vec3(mesh->normals   + 3 * normal_idx),
-                                 Vec2(mesh->texcoords + 2 * uv_idx)));
-        }
-    }
+        last_render_object = render_objects.size;
+        render_objects.push(render_object);
 
-    RenderObject result;
-    result.mesh_id = create_mesh(vertices);
-
-    if (mesh->material_count > 0)
-    {
-        // TODO: we are just finding the first texture associated with the material,
-        // but that is not correct.
-        if (mesh->materials[0].map_Kd.path)
-        {
-            result.material_id = load_material(&mesh->materials[0]);
-        }
+        delete[] vertex_data;
     }
 
     fast_obj_destroy(mesh);
 
-    delete[] vertex_data;
-
-    return result;
+    return last_render_object;
 }
 
 void prepare_debug_draw(Camera camera)
@@ -701,7 +728,7 @@ float get_aspect_ratio()
     return float(screen_width) / float(screen_height);
 }
 
-RenderObject create_skybox(const char* filename)
+RenderObjectIndex create_skybox(const char* filename)
 {
     RenderObject skybox;
     skybox.mesh_id = cube_mesh;
@@ -714,7 +741,9 @@ RenderObject create_skybox(const char* filename)
 
     materials.push(mat);
 
-    return skybox;
+    RenderObjectIndex result = render_objects.size;
+    render_objects.push(skybox);
+    return result;
 }
 
 }

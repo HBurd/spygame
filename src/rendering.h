@@ -68,16 +68,21 @@ struct Material
     uint texture_id;
 };
 
+typedef u32 RenderObjectIndex;
+
 struct RenderObject
 {
     u32 mesh_id;
     u32 material_id;
+
+    RenderObjectIndex next_group = INVALID_INDEX;
 };
 
+extern Array<RenderObject> render_objects;
 extern Array<Mesh> meshes;
 extern Array<Material> materials;
 
-extern RenderObject cube;
+extern RenderObjectIndex cube;
 extern u32 default_material;
 extern u32 cube_mesh;
 
@@ -90,13 +95,13 @@ void prepare_lightmap_draw(LightSource light);
 void prepare_debug_draw(Camera camera);
 
 void draw_box(Transform3d box);
-void draw_object(Transform3d transform, RenderObject obj);
+void draw_object(Transform3d transform, RenderObjectIndex obj_index);
 void debug_draw_rectangle(Transform2d rect, float r, float g, float b);
-void draw_skybox(RenderObject skybox, math::Vec3 camera_pos);
+void draw_skybox(RenderObjectIndex skybox_index, math::Vec3 camera_pos);
 
 // Returns index of render object
-RenderObject load_obj(const char* filename);
-RenderObject create_skybox(const char* filename);
+RenderObjectIndex load_obj(const char* filename);
+RenderObjectIndex create_skybox(const char* filename);
 
 int get_screen_width();
 int get_screen_height();

@@ -41,7 +41,7 @@ Camera camera;
 CameraView camera_view;
 
 LightSource light_source;
-RenderObject skybox;
+RenderObjectIndex skybox;
 
 Vec2 player_velocity;
 
@@ -61,9 +61,12 @@ void init_game()
     }
     else
     {
+        RenderObjectIndex building = load_obj("building.obj");
+
         // Create a random scene to start with
         create_entity(Transform2d({2.0f, 0.0f}, {0.5f, 5.0f}, 0.1f));
-        create_entity(Transform2d({-1.7f, 0.1f}, {0.5f, 5.0f}, -1.0f));
+        EntityRef building_entity = create_entity(Transform2d({-1.7f, 0.1f}, {1.0f, 1.0f}, -1.0f));
+        lookup_entity(building_entity)->render_object = building;
 
         game_state.player = create_entity(Transform2d());
     }
