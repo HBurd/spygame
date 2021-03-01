@@ -8,8 +8,8 @@
 
 struct EntityRef
 {
-    size_t index = 0;
-    uint version = 0;  // The default version is invalid
+    u32 index = 0;
+    u32 version = 0;  // The default version is invalid
 
     bool operator==(const EntityRef& rhs);
 };
@@ -32,15 +32,15 @@ struct EntityRecord
 
     union
     {
-        size_t index;
-        size_t next_free;
+        u32 index;
+        u32 next_free;
     };
 
-    static size_t first_free;
+    static u32 first_free;
 
     static EntityRecord records[MAX_ENTITIES];
 
-    static EntityRef create(size_t index);
+    static EntityRef create(u32 index);
     static void destroy(EntityRef ref);
 };
 
@@ -49,5 +49,6 @@ extern Array<Entity> entities;
 void init_entities();
 
 EntityRef create_entity(Entity entity);
+void delete_entity(EntityRef entity);
 
 Entity* lookup_entity(EntityRef entity_ref);

@@ -15,20 +15,12 @@ using namespace render;
 
 struct CameraView
 {
-    float distance = 5.0f;
+    Vec3 pos;
+
     float yaw = 0.0f;
     float pitch = 0.1f;
-
-    Vec3 target;
-
-    Vec3 compute_position() const;
     Quaternion compute_orientation() const;
 };
-
-Vec3 CameraView::compute_position() const
-{
-    return target + compute_orientation().apply_rotation(Vec3(0.0f, 0.0f, distance));
-}
 
 Quaternion CameraView::compute_orientation() const
 {
@@ -282,10 +274,10 @@ void update_game(float dt)
             ImGui::EndMainMenuBar();
         }
 
-        Entity* selected_entity = lookup_entity(selected_object);
-
-        // Handle object selection with mouse
         {
+            Entity* selected_entity = lookup_entity(selected_object);
+
+            // Handle object selection with mouse
             MouseState mouse = get_mouse_state();
             Vec3 mouse_pos, mouse_dir;
             camera.pixel_ray(mouse.x, mouse.y, get_screen_width(), get_screen_height(), &mouse_pos, &mouse_dir);
@@ -319,17 +311,30 @@ void update_game(float dt)
                 selected_entity->transform.pos = mouse_in_plane + selection_offset;
                 selected_entity->transform.rotation += rotation_change;
             }
-        }
 
-        if (selected_entity)
-        {
-            if (ImGui::Begin("Selected Object"))
+            if (selected_entity)
             {
-                ImGui::InputFloat2("Position", selected_entity->transform.pos.array());
-                ImGui::InputFloat2("Size", selected_entity->transform.scale.array());
-                ImGui::SliderFloat("Rotation", &selected_entity->transform.rotation, 0.0f, 2.0f * M_PI);
+                if (ImGui::Begin("Selected Object"))
+                {
+                    ImGui::InputFloat2("Position", selected_entity->transform.pos.array());
+                    ImGui::InputFloat2("Size", selected_entity->transform.scale.array());
+                    ImGui::SliderFloat("Rotation", &selected_entity->transform.rotation, 0.0f, 2.0f * M_PI);
+
+                    if (ImGui::Button("Duplicate"))
+                    {
+                        selected_object = create_entity(*selected_entity);
+                        selected_entity = lookup_entity(selected_object);
+                    }
+
+                    // NOTE: It's important that this is last since it will invalidate selected_entity
+                    if (ImGui::Button("Delete"))
+                    {
+                        delete_entity(selected_object);
+                        selected_object = EntityRef();
+                    }
+                }
+                ImGui::End();
             }
-            ImGui::End();
         }
 
         if (show_imgui_demo)
@@ -360,8 +365,8 @@ void update_game(float dt)
         MouseState mouse = get_mouse_state();
         if (mouse.right.held)
         {
-            camera_view.yaw -= 0.01f * mouse.xrel;
-            camera_view.pitch -= 0.01f * mouse.yrel;
+            camera_view.yaw -= 0.005f * mouse.xrel;
+            camera_view.pitch -= 0.005f * mouse.yrel;
 
             if (camera_view.yaw > M_PI)
             {
@@ -383,38 +388,53 @@ void update_game(float dt)
         }
     }
 
-    if (get_key_state(SDL_SCANCODE_LEFT).held)
     {
-        camera_view.target += dt * Vec3(-1.0f, 0.0f, 0.0f);
-    }
-    if (get_key_state(SDL_SCANCODE_RIGHT).held)
-    {
-        camera_view.target += dt * Vec3(1.0f, 0.0f, 0.0f);
-    }
-    if (get_key_state(SDL_SCANCODE_UP).held)
-    {
-        camera_view.target += dt * Vec3(0.0f, 1.0f, 0.0f);
-    }
-    if (get_key_state(SDL_SCANCODE_DOWN).held)
-    {
-        camera_view.target += dt * Vec3(0.0f, -1.0f, 0.0f);
+        float camera_speed = 4.0f;
+        Vec3 camera_delta;
+
+        if (get_key_state(SDL_SCANCODE_A).held)
+        {
+            camera_delta += dt * Vec3(-1.0f, 0.0f, 0.0f);
+        }
+        if (get_key_state(SDL_SCANCODE_D).held)
+        {
+            camera_delta += dt * Vec3(1.0f, 0.0f, 0.0f);
+        }
+        if (get_key_state(SDL_SCANCODE_W).held)
+        {
+            camera_delta += dt * Vec3(0.0f, 0.0f, -1.0f);
+        }
+        if (get_key_state(SDL_SCANCODE_S).held)
+        {
+            camera_delta += dt * Vec3(0.0f, 0.0f, 1.0f);
+        }
+        if (get_key_state(SDL_SCANCODE_Q).held)
+        {
+            camera_delta += dt * Vec3(0.0f, -1.0f, 0.0f);
+        }
+        if (get_key_state(SDL_SCANCODE_E).held)
+        {
+            camera_delta += dt * Vec3(0.0f, 1.0f, 0.0f);
+        }
+
+        camera_view.pos += camera_speed * camera_view.compute_orientation().apply_rotation(camera_delta);
     }
 
     player_velocity = Vec2();
 
-    if (get_key_state(SDL_SCANCODE_A).held)
+    if (get_key_state(SDL_SCANCODE_LEFT).held)
     {
         player_velocity += Vec2(-1.0f, 0.0f);
     }
-    if (get_key_state(SDL_SCANCODE_D).held)
+    if (get_key_state(SDL_SCANCODE_RIGHT).held)
     {
         player_velocity += Vec2(1.0f, 0.0f);
     }
-    if (get_key_state(SDL_SCANCODE_W).held)
+    if (get_key_state(SDL_SCANCODE_UP).held)
     {
         player_velocity += Vec2(0.0f, 1.0f);
     }
-    if (get_key_state(SDL_SCANCODE_S).held)
+    if (get_key_state(SDL_SCANCODE_DOWN).held)
     {
         player_velocity += Vec2(0.0f, -1.0f);
     }
@@ -459,7 +479,7 @@ void update_game(float dt)
 
 static void draw_scene()
 {
-    draw_skybox(skybox, camera_view.compute_position());
+    draw_skybox(skybox, camera_view.pos);
     for (auto& entity : entities)
     {
         Transform3d box_transform(Vec3(entity.transform.pos.x, entity.transform.pos.y, 0.5f), Vec3(entity.transform.scale.x, entity.transform.scale.y, 1.0f), entity.transform.rotation);
@@ -472,7 +492,7 @@ void render_game()
     prepare_lightmap_draw(light_source);
     draw_scene();
 
-    camera.pos = camera_view.compute_position();
+    camera.pos = camera_view.pos;
     camera.orientation = camera_view.compute_orientation();
     prepare_final_draw(camera, light_source);
     draw_scene();

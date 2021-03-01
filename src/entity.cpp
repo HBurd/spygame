@@ -3,11 +3,11 @@
 
 MAKE_ARRAY(entities, Entity, MAX_ENTITIES);
 
-size_t EntityRecord::first_free;
+u32 EntityRecord::first_free;
 
 EntityRecord EntityRecord::records[MAX_ENTITIES];
 
-EntityRef EntityRecord::create(size_t index)
+EntityRef EntityRecord::create(u32 index)
 {
     // Check if there is room for another record
     assert(first_free < ARRAY_LENGTH(records));
@@ -51,7 +51,7 @@ void init_entities()
 
 EntityRef create_entity(Entity entity)
 {
-    size_t index = entities.size;
+    u32 index = entities.size;
     entities.push(entity);
     EntityRef ref = EntityRecord::create(index);
 
@@ -59,6 +59,27 @@ EntityRef create_entity(Entity entity)
     lookup_entity(ref)->ref = ref;
 
     return ref;
+}
+
+void delete_entity(EntityRef entity)
+{
+    assert(lookup_entity(entity));
+
+    u32 index = EntityRecord::records[entity.index].index;
+    
+    // Destroy the record and move the last entity into this entity's place
+    // so there isn't a hole in the entities list.
+    EntityRecord::destroy(entity);
+
+    // If the last entity is being deleted nothing needs to be updated
+    if (entities.size > 1)
+    {
+        u32 final_index = entities.size - 1;
+        entities[index] = entities[final_index];
+        EntityRecord::records[entities[final_index].ref.index].index = index;
+    }
+
+    entities.pop();
 }
 
 Entity::Entity(Transform2d transform_)
