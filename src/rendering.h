@@ -75,6 +75,8 @@ struct RenderObject
     u32 mesh_id;
     u32 material_id;
 
+    const char* filename = "";
+
     RenderObjectIndex next_group = INVALID_INDEX;
 };
 
@@ -97,11 +99,13 @@ void prepare_debug_draw(Camera camera);
 void draw_box(Transform3d box);
 void draw_object(Transform3d transform, RenderObjectIndex obj_index);
 void debug_draw_rectangle(Transform2d rect, float r, float g, float b);
-void draw_skybox(RenderObjectIndex skybox_index, math::Vec3 camera_pos);
+void draw_skybox(u32 texture_index, math::Vec3 camera_pos);
 
 // Returns index of render object
 RenderObjectIndex load_obj(const char* filename);
-RenderObjectIndex create_skybox(const char* filename);
+
+// Returns texture id
+uint load_texture(const char* path);
 
 int get_screen_width();
 int get_screen_height();

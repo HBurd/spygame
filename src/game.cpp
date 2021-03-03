@@ -33,7 +33,7 @@ Camera camera;
 CameraView camera_view;
 
 LightSource light_source;
-RenderObjectIndex skybox;
+u32 skybox;
 
 Vec2 player_velocity;
 
@@ -63,7 +63,7 @@ void init_game()
         game_state.player = create_entity(Transform2d());
     }
 
-    skybox = render::create_skybox("cubemap.png");
+    skybox = render::load_texture("cubemap.png");
 
     Entity* player = lookup_entity(game_state.player);
     assert(player);

@@ -181,48 +181,6 @@ static const Array<Vertex> generate_cube_mesh()
     return Array<Vertex>(&cube_mesh);
 }
 
-// This won't load a texture if it has already been loaded.
-// Returns the index of the texture in textures
-static uint load_texture(const char* path)
-{
-    for (uint i = 0; i < textures.size; ++i)
-    {
-        if (strcmp(path, textures[i].path) == 0)
-        {
-            return i;
-        }
-    }
-
-    size_t path_len = strlen(path) + 1;
-
-    char* new_path = (char*) malloc(path_len);
-    memcpy(new_path, path, path_len);
-
-    Texture new_texture;
-    new_texture.path = new_path;
-
-    // Generate the texture and load the image into it
-    int w, h, n;
-    u8* image = stbi_load(path, &w, &h, &n, 3);
-
-    glGenTextures(1, &new_texture.id);
-    glBindTexture(GL_TEXTURE_2D, new_texture.id);
-
-    // TODO: can these be read from mtl?
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-
-    stbi_image_free(image);
-
-    uint texture_id = textures.size;
-    textures.push(new_texture);
-    return texture_id;
-}
-
 static u32 create_mesh(Array<Vertex> vertices)
 {
     render::Mesh mesh;
@@ -262,7 +220,7 @@ static u32 load_material(fastObjMaterial* mat)
 
     if (mat->map_Kd.path)
     {
-        new_material.texture_id = load_texture(mat->map_Kd.path);
+        new_material.texture_id = render::load_texture(mat->map_Kd.path);
         new_material.textured = true;
     }
 
@@ -504,14 +462,11 @@ void draw_box(Transform3d box)
     draw_object(box, cube);
 }
 
-void draw_skybox(RenderObjectIndex skybox_index, Vec3 camera_pos)
+void draw_skybox(u32 texture_id, Vec3 camera_pos)
 {
-    RenderObject skybox = render_objects[skybox_index];
+    Mesh mesh = meshes[cube];
 
-    Mesh mesh = meshes[skybox.mesh_id];
-    Material mat = materials[skybox.material_id];
-
-    glBindVertexArray(meshes[skybox.mesh_id].vao);
+    glBindVertexArray(mesh.vao);
 
     Mat3 rotation;
     Vec3 scale(1.0f, 1.0f, 1.0f);
@@ -526,19 +481,16 @@ void draw_skybox(RenderObjectIndex skybox_index, Vec3 camera_pos)
     glUniform3fv(loc, 1, camera_pos.array());
 
     loc = glGetUniformLocation(selected_shader, "lit");
-    glUniform1i(loc, mat.lit);
+    glUniform1i(loc, false);
 
     loc = glGetUniformLocation(selected_shader, "textured");
-    glUniform1i(loc, mat.textured);
+    glUniform1i(loc, true);
 
     loc = glGetUniformLocation(selected_shader, "color_texture");
     glUniform1i(loc, 1);
 
-    if (mat.textured)
-    {
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, textures[mat.texture_id].id);
-    }
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, textures[texture_id].id);
 
     glDepthMask(GL_FALSE);
     glFrontFace(GL_CW);
@@ -611,6 +563,9 @@ RenderObjectIndex load_obj(const char* filename)
 
     const uint face_vertices = 3;
 
+    // TODO: I think all submeshes can be loaded into the same vbo/vao, and rendered
+    // separately with different starting indices and counts. Maybe this will be more
+    // efficient than using separate VBOs for each, but I'm not sure.
     for (uint g = 0; g < mesh->group_count; ++g)
     {
         uint group_vertices = mesh->groups[g].face_count * face_vertices;
@@ -662,6 +617,8 @@ RenderObjectIndex load_obj(const char* filename)
 
         delete[] vertex_data;
     }
+
+    render_objects[last_render_object].filename = filename;
 
     fast_obj_destroy(mesh);
 
@@ -728,22 +685,46 @@ float get_aspect_ratio()
     return float(screen_width) / float(screen_height);
 }
 
-RenderObjectIndex create_skybox(const char* filename)
+// This won't load a texture if it has already been loaded.
+// Returns the index of the texture in textures
+uint load_texture(const char* path)
 {
-    RenderObject skybox;
-    skybox.mesh_id = cube_mesh;
-    skybox.material_id = materials.size;
+    for (uint i = 0; i < textures.size; ++i)
+    {
+        if (strcmp(path, textures[i].path) == 0)
+        {
+            return i;
+        }
+    }
 
-    Material mat;
-    mat.textured = true;
-    mat.lit = false;
-    mat.texture_id = load_texture(filename);
+    size_t path_len = strlen(path) + 1;
 
-    materials.push(mat);
+    char* new_path = (char*) malloc(path_len);
+    memcpy(new_path, path, path_len);
 
-    RenderObjectIndex result = render_objects.size;
-    render_objects.push(skybox);
-    return result;
+    Texture new_texture;
+    new_texture.path = new_path;
+
+    // Generate the texture and load the image into it
+    int w, h, n;
+    u8* image = stbi_load(path, &w, &h, &n, 3);
+
+    glGenTextures(1, &new_texture.id);
+    glBindTexture(GL_TEXTURE_2D, new_texture.id);
+
+    // TODO: can these be read from mtl?
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+    stbi_image_free(image);
+
+    uint texture_id = textures.size;
+    textures.push(new_texture);
+    return texture_id;
 }
 
 }
