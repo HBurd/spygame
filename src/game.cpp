@@ -74,13 +74,14 @@ void init_game()
     build_nav_mesh(-10.0f, 10.0f, -10.0f, 10.0f);
 }
 
-bool editor_enabled = false;
+bool editor_enabled = true;
 EntityRef selected_object;
 Vec2 selection_offset;
 
 bool show_imgui_demo = false;
 bool show_light_window = false;
 bool show_camera_window = false;
+bool show_navigation_window = false;
 
 void update_game(float dt)
 {
@@ -115,6 +116,7 @@ void update_game(float dt)
                 ImGui::MenuItem("ImGui demo window", nullptr, &show_imgui_demo);
                 ImGui::MenuItem("Edit light", nullptr, &show_light_window);
                 ImGui::MenuItem("Edit camera", nullptr, &show_camera_window);
+                ImGui::MenuItem("Navigation", nullptr, &show_navigation_window);
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
@@ -202,6 +204,23 @@ void update_game(float dt)
             if (ImGui::Begin("Edit Camera", &show_camera_window))
             {
                 camera.draw_gui();
+            }
+            ImGui::End();
+        }
+
+        if (show_navigation_window)
+        {
+            if (ImGui::Begin("Navigation", &show_navigation_window))
+            {
+                // TODO: Is this too hacky?
+                static float bounds[4] = {-10.0f, 10.0f, -10.0f, 10.0f};
+
+                ImGui::InputFloat4("left/right/bottom/top bounds", bounds);
+
+                if (ImGui::Button("(Re)generate nav mesh"))
+                {
+                    build_nav_mesh(bounds[0], bounds[1], bounds[2], bounds[3]);
+                }
             }
             ImGui::End();
         }
