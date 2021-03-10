@@ -42,6 +42,10 @@ struct Array
         :size(size_), max_size(max_size_), data(array)
     {}
 
+    Array<T>(T* array, size_t size_)
+        :size(size_), max_size(size_), data(array)
+    {}
+
     T* push(T t)
     {
         assert(size < max_size);
@@ -57,6 +61,21 @@ struct Array
         T temp = data[size];
         data[size] = {};
         return temp;
+    }
+
+    // Overwrites element with the last element of the list
+    // (so this does break references)
+    T remove(T* element)
+    {
+        assert(element >= begin() && element < end());
+
+        T element_copy = *element;
+
+        // Note that this still works when element == back()
+        *element = *back();
+        --size;
+
+        return element_copy;
     }
 
     void clear()

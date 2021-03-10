@@ -44,6 +44,8 @@ u32 render::default_material;
 u32 render::cube_mesh;
 GLuint rect_vbo;
 GLuint rect_vao;
+GLuint line_vbo;
+GLuint line_vao;
 
 int screen_width;
 int screen_height;
@@ -398,8 +400,22 @@ void init_rendering(SDL_Window* window)
 
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (const void*)0);
+    }
 
-        debug_shader = load_shader("shaders/debug_vs.glsl", "shaders/debug_fs.glsl");
+    // Generate (2d) line vao
+    {
+        glGenBuffers(1, &line_vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, line_vbo);
+
+        Vec2 line_vertices[2] = {Vec2(0.0f, 0.0f), Vec2(1.0f, 0.0f)};
+
+        glBufferData(GL_ARRAY_BUFFER, sizeof(line_vertices), line_vertices, GL_STATIC_DRAW);
+
+        glGenVertexArrays(1, &line_vao);
+        glBindVertexArray(line_vao);
+
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (const void*)0);
     }
 
     // Load default meshes, materials and objects
@@ -416,8 +432,8 @@ void init_rendering(SDL_Window* window)
         render_objects.push(cube_object);
     }
 
+    debug_shader = load_shader("shaders/debug_vs.glsl", "shaders/debug_fs.glsl");
     simple_shader = load_shader("shaders/simple_vs.glsl", "shaders/simple_fs.glsl");
-
     light_map_shader = load_shader("shaders/shadow_vs.glsl", "shaders/shadow_fs.glsl");
 }
 
@@ -643,7 +659,6 @@ void debug_draw_rectangle(Transform2d rect, float r, float g, float b)
     glBindVertexArray(rect_vao);
     glUseProgram(debug_shader);
 
-
     GLint loc = glGetUniformLocation(debug_shader, "color");
     glUniform3f(loc, r, g, b);
 
@@ -661,6 +676,42 @@ void debug_draw_rectangle(Transform2d rect, float r, float g, float b)
     glDrawArrays(GL_LINE_LOOP, 0, 4);
 
     glEnable(GL_DEPTH_TEST);
+}
+
+void debug_draw_poly(const Vec2* points, u32 count, float r, float g, float b)
+{
+    for (uint i = 0; i < count; ++i)
+    {
+        Vec2 edge = points[(i + 1) % count] - points[i];
+
+        // The rotation matrix transforms [1 0] into [edge.x, edge.y].
+        // Technically the rotaiton matrix is acting as rotation and scale.
+        Mat2 rotation(edge.x, 0.0f,
+                      edge.y, 0.0f);
+
+        Vec2 scale(1.0f, 1.0f);
+
+        glBindVertexArray(line_vao);
+        glUseProgram(debug_shader);
+
+        GLint loc = glGetUniformLocation(debug_shader, "color");
+        glUniform3f(loc, r, g, b);
+
+        loc = glGetUniformLocation(debug_shader, "position");
+        glUniform2fv(loc, 1, points[i].array());
+
+        loc = glGetUniformLocation(debug_shader, "rotation");
+        glUniformMatrix2fv(loc, 1, GL_TRUE, rotation.data);
+
+        loc = glGetUniformLocation(debug_shader, "scale");
+        glUniform2fv(loc, 1, scale.array());
+
+        glDisable(GL_DEPTH_TEST);
+
+        glDrawArrays(GL_LINE_LOOP, 0, count);
+
+        glEnable(GL_DEPTH_TEST);
+    }
 }
 
 void present_screen(SDL_Window* window)

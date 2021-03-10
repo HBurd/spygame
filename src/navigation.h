@@ -1,14 +1,16 @@
 #pragma once
 
-#include "math3d.h"
+#include "math2d.h"
+#include "util.h"
 
-struct NavNode
+struct NavPoly
 {
-    u32 vertex_count;
-    u32 vertices[MAX_NAV_POLY_VERTICES];
+    u32 offset;
+    u32 count;
+    bool occupied = true;
 };
 
-extern Array<Vec3> nav_vertices;
-extern Array<NavNode> nav_nodes;
+extern Array<NavPoly> nav_polys;
+extern Array<math::Vec2> nav_vertices;
 
-void add_nav_vertex(NavNode* node, Vec3 vertex);
+void build_nav_mesh(float left, float right, float bottom, float top);

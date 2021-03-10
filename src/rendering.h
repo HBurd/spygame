@@ -98,8 +98,9 @@ void prepare_debug_draw(Camera camera);
 
 void draw_box(Transform3d box);
 void draw_object(Transform3d transform, RenderObjectIndex obj_index);
-void debug_draw_rectangle(Transform2d rect, float r, float g, float b);
 void draw_skybox(u32 texture_index, math::Vec3 camera_pos);
+void debug_draw_rectangle(Transform2d rect, float r, float g, float b);
+void debug_draw_poly(const math::Vec2* points, u32 count, float r, float g, float b);
 
 // Returns index of render object
 RenderObjectIndex load_obj(const char* filename);
