@@ -11,6 +11,7 @@ struct NavPoly
 };
 
 extern Array<NavPoly> nav_polys;
+extern Array<u32> nav_connections;
 extern Array<math::Vec2> nav_vertices;
 
 void build_nav_mesh(float left, float right, float bottom, float top);

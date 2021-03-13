@@ -8,6 +8,7 @@ using math::Vec2;
 using math::Mat2;
 
 MAKE_ARRAY(nav_polys, NavPoly, 1024);
+MAKE_ARRAY(nav_connections, u32, 1024);
 MAKE_ARRAY(nav_vertices, Vec2, 1024);
 
 // Note to my future self: I am sorry. There are a lot of different cases here.
@@ -27,6 +28,8 @@ void subdivide_nav_poly(Array<Vec2> poly, Array<Vec2> wall)
         new_poly.offset = nav_vertices.size;
         new_poly.count = 0;
 
+        // After the first point of the new polygon is added (i.e. the last point of wall),
+        // poly_idx should be the index of the next point of poly to add to the new polygon.
         uint poly_idx = 0;
 
         if (point_in_poly(poly, w1))
@@ -190,6 +193,11 @@ void build_nav_mesh(float left, float right, float bottom, float top)
     nav_vertices.push(Vec2(left,  bottom));
     nav_vertices.push(Vec2(right, bottom));
     nav_vertices.push(Vec2(right, top));
+
+    nav_connections.push(INVALID_INDEX);
+    nav_connections.push(INVALID_INDEX);
+    nav_connections.push(INVALID_INDEX);
+    nav_connections.push(INVALID_INDEX);
 
     NavPoly poly;
     poly.offset = 0;

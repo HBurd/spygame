@@ -708,7 +708,7 @@ void debug_draw_poly(const Vec2* points, u32 count, float r, float g, float b)
 
         glDisable(GL_DEPTH_TEST);
 
-        glDrawArrays(GL_LINES, 0, count);
+        glDrawArrays(GL_LINES, 0, 2);
 
         glEnable(GL_DEPTH_TEST);
     }
