@@ -34,6 +34,7 @@ bool poly_intersect(Array<math::Vec2> p1, Array<math::Vec2> p2);
 
 bool edge_intersect(math::Vec2 a1, math::Vec2 a2, math::Vec2 b1, math::Vec2 b2, math::Vec2* intersection);
 
+// Returns whether p is cw from v
 bool cw_from_vector(math::Vec2 v, math::Vec2 p);
 
 // Find where the line along dir passing through p intersects with a particular z plane

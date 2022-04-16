@@ -13,7 +13,7 @@ MAKE_ARRAY(nav_vertices, Vec2, 1024);
 
 // Note to my future self: I am sorry. There are a lot of different cases here.
 // I recommend you draw each of them out to understand what is happening.
-void subdivide_nav_poly(Array<Vec2> poly, Array<Vec2> wall)
+static void subdivide_nav_poly(Array<Vec2> poly, Array<Vec2> wall)
 {
     // The vertices of wall outside of poly have no effect. The edge intersections
     // between wall and poly become vertices of the subdivided polygons, as do the
@@ -62,9 +62,10 @@ void subdivide_nav_poly(Array<Vec2> poly, Array<Vec2> wall)
             // Now poly[poly_idx % poly_size] is the final poly vertex on the outside
             // of w3->w1. If a poly was added for the final vertex of the last wall,
             // the poly_idx still needs to be advanced until the end of this poly.
-            
             while (!cw_from_vector(w2 - w1, poly[poly_idx % poly.size] - w1))
             {
+                // TODO: Potential optimization: I think it can be shown that this
+                // loop will execute at most once.
                 ++poly_idx;
             }
         }
@@ -136,22 +137,28 @@ void subdivide_nav_poly(Array<Vec2> poly, Array<Vec2> wall)
             Vec2 w3 = wall[(wall_idx + 2) % wall.size];
             if (!cw_from_vector(w3 - w2, p1 - w2))
             {
+                // TODO: I think it should always be possible to add a new
+                // vertex and avoid creating a new polygon, which will
+                // result in a better nav mesh.
+
                 new_poly.offset = nav_vertices.size;
-                new_poly.count = 1;
+                new_poly.count = 0;
+
+                nav_vertices.push(w2);
+                ++new_poly.count;
 
                 nav_vertices.push(p1);
+                ++new_poly.count;
 
                 while (!cw_from_vector(w3 - w2, poly[poly_idx % poly.size] - w2))
                 {
+                    // TODO: Same potential optimization as above comment
                     nav_vertices.push(poly[poly_idx % poly.size]);
                     ++new_poly.count;
                     ++poly_idx;
                 }
 
                 nav_vertices.push(poly[poly_idx % poly.size]);
-                ++new_poly.count;
-
-                nav_vertices.push(w2);
                 ++new_poly.count;
 
                 nav_polys.push(new_poly);
@@ -162,7 +169,7 @@ void subdivide_nav_poly(Array<Vec2> poly, Array<Vec2> wall)
 
 // Updates the nav mesh for a convex polygon obstacle defined by vertices
 // TODO: This is horribly inefficient
-void add_obstacle(Array<Vec2> wall)
+static void add_obstacle(Array<Vec2> wall)
 {
     // Find which nav polys the obstacle intersects
     // Save the count here because we'll be adding more nav polys with each iteration.
@@ -182,6 +189,8 @@ void add_obstacle(Array<Vec2> wall)
             }
         }
     }
+
+    // TODO: Now connect all the polygons which were just created
 }
 
 void build_nav_mesh(float left, float right, float bottom, float top)
