@@ -7,20 +7,21 @@ STB_IMAGE_PATH = lib/stb_image-2.26
 HBMATH_PATH = lib/hbmath
 SRC_PATH = src
 
-CPPSRC = $(wildcard $(SRC_PATH)/*.cpp) $(wildcard $(IMGUI_PATH)/*.cpp) $(IMGUI_PATH)/backends/imgui_impl_sdl.cpp $(IMGUI_PATH)/backends/imgui_impl_opengl3.cpp $(HBMATH_PATH)/hbmath.cpp
+SRC = $(wildcard $(SRC_PATH)/*.cpp)
 
-CSRC = $(GLEW_PATH)/src/glew.c $(FAST_OBJ_PATH)/fast_obj.c $(STB_IMAGE_PATH)/stb_image.c
 
-OBJECTS = $(CPPSRC:.cpp=.o) $(CSRC:.c=.o)
+CPPLIBS = $(wildcard $(IMGUI_PATH)/*.cpp) $(IMGUI_PATH)/backends/imgui_impl_sdl.cpp $(IMGUI_PATH)/backends/imgui_impl_opengl3.cpp $(HBMATH_PATH)/hbmath.cpp
 
-CXXFLAGS = -MMD -g -Iinclude -I$(IMGUI_PATH) -Iinclude/SDL2 -I$(SRC_PATH) -I$(FAST_OBJ_PATH) -I$(STB_IMAGE_PATH) -I$(GLEW_PATH)/include -I$(HBMATH_PATH) -Wall -Wextra
+CLIBS = $(GLEW_PATH)/src/glew.c $(FAST_OBJ_PATH)/fast_obj.c $(STB_IMAGE_PATH)/stb_image.c
+
+LIBS = $(CPPLIBS:.cpp=.o) $(CLIBS:.c=.o)
+
+CXXFLAGS = -g -Iinclude -I$(IMGUI_PATH) -Iinclude/SDL2 -I$(SRC_PATH) -I$(FAST_OBJ_PATH) -I$(STB_IMAGE_PATH) -I$(GLEW_PATH)/include -I$(HBMATH_PATH) -Wall -Wextra
 CFLAGS = $(CXXFLAGS)
 CPPFLAGS = -DGLEW_STATIC -DGLEW_NO_GLU -DIMGUI_IMPL_OPENGL_LOADER_GLEW
 
-game: $(OBJECTS)
-	g++ $(OBJECTS) -o game $(CXXFLAGS) -Llib -ldl -lpthread -lGL -l:libSDL2.a
+game: $(LIBS)
+	g++ $(SRC) $(LIBS) -o game $(CXXFLAGS) -Llib -ldl -lpthread -lGL -l:libSDL2.a
 
 clean:
-	rm -f $(OBJECTS) $(OBJECTS:.o=.d) game
-
--include $(OBJECTS:.o=.d)
+	rm -f $(LIBS) game
