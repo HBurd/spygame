@@ -1,6 +1,6 @@
 #include "game.h"
 #include "util.h"
-#include "math2d.h"
+#include "hbmath.h"
 #include "rendering.h"
 #include "input.h"
 #include "shapes.h"
@@ -11,7 +11,7 @@
 #include "imgui.h"
 #include <cmath>
 
-using namespace math;
+using namespace hbmath;
 using namespace render;
 
 struct CameraView
@@ -155,7 +155,7 @@ void update_game(float dt)
             if (mouse.left.held && selected_entity)
             {
                 float rotation_change = 0.05f * mouse.wheel;
-                selection_offset = math::Mat2::Rotation(rotation_change) * selection_offset;
+                selection_offset = Mat2::Rotation(rotation_change) * selection_offset;
                 selected_entity->transform.pos = mouse_in_plane + selection_offset;
                 selected_entity->transform.rotation += rotation_change;
             }

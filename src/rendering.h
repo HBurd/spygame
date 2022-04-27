@@ -1,8 +1,6 @@
 #pragma once
 
-#include "math2d.h"
-#include "math3d.h"
-#include "math4d.h"
+#include "hbmath.h"
 
 #include "shapes.h"
 #include "util.h"
@@ -15,8 +13,8 @@ namespace render {
 
 struct Camera
 {
-    math::Vec3 pos;
-    math::Quaternion orientation;
+    hbmath::Vec3 pos;
+    hbmath::Quaternion orientation;
     float near = 0.1f;
     float far = 100.0f;
     float near_width = 1.0f; // width of near plane
@@ -28,10 +26,10 @@ struct Camera
     float get_fov() const;
 
     // x and y are in pixels from the top left, width and height are width and height of the camera image
-    void pixel_ray(int x, int y, int width, int height, math::Vec3* ray_pos, math::Vec3* ray_dir) const;
+    void pixel_ray(int x, int y, int width, int height, hbmath::Vec3* ray_pos, hbmath::Vec3* ray_dir) const;
 
     // Returns camera_matrix * view_matrix
-    math::Mat4 compute_matrix(float aspect_ratio) const;
+    hbmath::Mat4 compute_matrix(float aspect_ratio) const;
 
     void draw_gui();
 };
@@ -58,8 +56,8 @@ struct Mesh
 
 struct Material
 {
-    math::Vec3 diffuse_color = math::Vec3(1.0f, 1.0f, 1.0f);
-    math::Vec3 specular_color = math::Vec3(0.0f, 0.0f, 0.0f);
+    hbmath::Vec3 diffuse_color = hbmath::Vec3(1.0f, 1.0f, 1.0f);
+    hbmath::Vec3 specular_color = hbmath::Vec3(0.0f, 0.0f, 0.0f);
     float shininess = 1.0f;
 
     bool lit = true;
@@ -98,9 +96,9 @@ void prepare_debug_draw(Camera camera);
 
 void draw_box(Transform3d box);
 void draw_object(Transform3d transform, RenderObjectIndex obj_index);
-void draw_skybox(u32 texture_index, math::Vec3 camera_pos);
+void draw_skybox(u32 texture_index, hbmath::Vec3 camera_pos);
 void debug_draw_rectangle(Transform2d rect, float r, float g, float b);
-void debug_draw_poly(const math::Vec2* points, u32 count, float r, float g, float b);
+void debug_draw_poly(const hbmath::Vec2* points, u32 count, float r, float g, float b);
 
 // Returns index of render object
 RenderObjectIndex load_obj(const char* filename);

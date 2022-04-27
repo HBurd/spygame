@@ -1,8 +1,7 @@
 #include "rendering.h"
 #include "util.h"
 
-#include "math3d.h"
-#include "math4d.h"
+#include "hbmath.h"
 
 #include "GL/glew.h"
 #include "SDL2/SDL.h"
@@ -15,11 +14,11 @@
 
 #define MAX_TEXTURES 1024
 
-using math::Vec2;
-using math::Vec3;
-using math::Mat2;
-using math::Mat3;
-using math::Mat4;
+using hbmath::Vec2;
+using hbmath::Vec3;
+using hbmath::Mat2;
+using hbmath::Mat3;
+using hbmath::Mat4;
 
 struct Texture
 {

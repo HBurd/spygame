@@ -4,8 +4,8 @@
 
 #include <cassert>
 
-using math::Vec2;
-using math::Mat2;
+using hbmath::Vec2;
+using hbmath::Mat2;
 
 MAKE_ARRAY(nav_polys, NavPoly, 1024);
 MAKE_ARRAY(nav_connections, u32, 1024);
