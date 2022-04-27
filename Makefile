@@ -23,5 +23,8 @@ CPPFLAGS = -DGLEW_STATIC -DGLEW_NO_GLU -DIMGUI_IMPL_OPENGL_LOADER_GLEW
 game: $(LIBS)
 	g++ $(SRC) $(LIBS) -o game $(CXXFLAGS) -Llib -ldl -lpthread -lGL -l:libSDL2.a
 
+compile_flags.txt:
+	echo $(CXXFLAGS) | sed -e "s/ /\n/g" > compile_flags.txt
+
 clean:
-	rm -f $(LIBS) game
+	rm -f $(LIBS) compile_flags.txt game

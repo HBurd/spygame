@@ -2,3 +2,4 @@ game
 *.o
 *.d
 imgui.ini
+compile_flags.txt
