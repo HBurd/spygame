@@ -25,9 +25,9 @@ CXXFLAGS = -g -Iinclude -Iinclude/SDL2 -I$(IMGUI_PATH) -I$(SRC_PATH) -I$(FAST_OB
 CFLAGS = $(CXXFLAGS)
 CPPFLAGS = -DGLEW_STATIC -DGLEW_NO_GLU -DIMGUI_IMPL_OPENGL_LOADER_GLEW -DIMGUI_IMPL_OPENGL_ES3
 
-EMSCRIPTEN_FLAGS = -sUSE_SDL=2 -sFULL_ES3 -sUSE_WEBGL2 -sALLOW_MEMORY_GROWTH --preload-file Roboto-Regular.ttf --preload-file shaders --preload-file test.scene --preload-file building.obj --preload-file bettermug.obj --preload-file cubemap.png --preload-file building.mtl --preload-file bettermug.mtl --preload-file uvtest.png
+EMSCRIPTEN_FLAGS = -sUSE_SDL=2 -sFULL_ES3 -sUSE_WEBGL2 -sALLOW_MEMORY_GROWTH  -sWASM --preload-file Roboto-Regular.ttf --preload-file shaders --preload-file test.scene --preload-file building.obj --preload-file bettermug.obj --preload-file cubemap.png --preload-file building.mtl --preload-file bettermug.mtl --preload-file uvtest.png
 
-game: $(SRC) $(LIB_OBJECTS) lib/libSDL2.a
+$(TARGET): $(SRC) $(LIB_OBJECTS) lib/libSDL2.a
 	g++ $^ -o $@ $(CXXFLAGS) -I$(GLEW_PATH)/include -Llib -ldl -lpthread -lGL
 
 compile_flags.txt:
@@ -44,6 +44,7 @@ clean:
 
 www/$(TARGET): $(SRC) $(LIB_OBJECTS_EMSCRIPTEN)
 	mkdir -p www
-	em++ -o $@.html $^ $(CXXFLAGS) $(CPPFLAGS) $(EMSCRIPTEN_FLAGS)
+	cp emscripten-shell.html www/index.html
+	em++ -o $@.js $^ $(CXXFLAGS) $(CPPFLAGS) $(EMSCRIPTEN_FLAGS)
 
 www: www/$(TARGET)
